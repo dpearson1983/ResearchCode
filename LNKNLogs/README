@@ -1,0 +1,107 @@
+LNKNLogs
+(LogNormal mocK aNisotropic cataLogs)
+Copyright David W. Pearson
+
+LICENSE: GPL v3
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ABOUT:
+    This code is designed to generate lognormal mock galaxy catalogs with
+    anisotropies caused by redshift space distortions (RSDs). The code is
+    still in the early stages at this point with some desired features 
+    missing. However, at this point it is capable of generating mocks
+    with two different kinds of tracers and anisotropies in the plane-
+    parallel approximation (also called the far-field or Kaiser 
+    approximation). The code is reasonably efficient in terms of speed
+    and memory usage.
+    
+    It should be noted that this code is based on a Gaussian random mock
+    generation code which was originally written in python by Lado Samushia.
+    However, finding the proper scaling to use with Gaussian random mocks
+    to go from the density field to the galaxy distribution is not straight-
+    forward. This, combined with the fact that numpy's fft's used 
+    extraneously large amounts of memory and were significantly slower than
+    those performed with the FFTW library.
+    
+REQUIREMENTS:
+    In order to successfully compile this code, you will need the following
+    libraries:
+    
+    1. FFTW - fftw.org
+              Fourier transforms are and integral part of the lognormal mock
+              generation process, and the FFTW library is known for providing
+              the fastest of fast Fourier transforms. Currently this code
+              uses an older version of the library (v 2.1.5). This will be 
+              updated to use the newer, faster version 3 of the library very
+              soon.
+    
+    2. GSL  - http://www.gnu.org/software/gsl/
+              The GNU Scientific Library is used to create splines of input
+              CAMB files for the matter power spectrum. Version 1.16 was used
+              in the development of this code since it is the version available
+              in the repositories for Fedora 22/23. It is unknown if the 
+              (fairly) newly released version 2.1 will work.
+              
+    3. GCC  - https://gcc.gnu.org/
+              Version 5.3.1 has been used in compiling the code so far. It
+              should be noted that in theory any C++11 or later standard 
+              compatible compiler should be able to compile the code. It
+              also needs to be compatible with OpenMP as the default is to
+              compile with multithreaded FFTs using OpenMP.
+              
+INSTALLATION:
+    Currently there is no makefile to compile the software. However, as the
+    program is not intensely complex in nature, it should be simple to compile
+    manually on any linux based system.
+    
+    First, make sure that you have the above requirements installed. As they
+    are free software packages, they will likely be available in the repositories
+    for your linux distribution (for Windows/Mac users, you're on your own).
+    Simply open a terminal and install them as you would any other package.
+    For example on Fedora 22 or later simply enter:
+    
+    $ sudo dnf install fftw2 fftw2-devel fftw2-static gsl gsl-devel gcc gcc-c++
+    
+    The command should be similar on other distributions, just replace dnf with
+    the package management utility on your distribution (apt-get, yum, etc.). If
+    that fails, visit the webpages above to download the libraries or search
+    the web for how to install them on your distribution. Once those are installed
+    the code should compile with two commands:
+    
+    $ g++ -std=c++11 -lgsl -lgslcblas -lfftw -lm -march=native -mtune=native -O3 
+      -c -o lognormal.o lognormal.cpp
+    $ g++ -std=c++11 -lfftw -lrfftw -lfftw_threads -lrfftw_threads -lm -fopenmp
+      -march=native -mtune=native -O3 -o LNKNLogs-2Tracer LNKNLogs-2Tracer.cpp
+      lognormal.o
+      
+    The above commands have been formated for readability, and should be entered
+    without linebreaks in the terminal.
+    
+    To run the code will need a file called RedshiftBinInfo.dat (the exact name
+    can be changed in the source). This is a plain text file which lists the number
+    of redshift bins to create mocks for followed by data for each bin. This data is
+    the central redshift, length of a side of the cube, number of tracer 1, number
+    of tracer 2, bias of tracer 1, bias of tracer 2, and growth factor. This should
+    be entered in that exact order with a single line per redshift bin. Before
+    compilation also make sure to specify the CAMB file name in the source which
+    should just be the base of the file name without the associated redshift or
+    the file extension.
+    
+    In the near future this will be simplified by requiring parameter files in
+    which will provide the code will all necessary information without requiring
+    recompilation and making it much clearer how to organize the information.
+
+NOTES:
+    If you have any questions about the code or if you would like to contribute to
+    the code please contact me at dpearson1983@gmail.com
