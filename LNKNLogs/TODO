@@ -1,0 +1,20 @@
+This file is to keep track of things that I need/want to do for the LNKNLogs code
+
+Short term:
+    1. Write single tracer code
+    2. Setup to run from parameter files as implemented in some of my other code
+    3. Put together a makefile
+    
+Long term:
+    1. Look into a more standardized parameter file format (e.g. ini files)
+    2. Setup code to be able to generate single or multitracer mocks based on parameter file
+       options.
+    3. Look into adding in finger-of-god effect to anisotropies.
+        - Should be relatively simple with a Lorentzian multiplicative factor
+    4. Explore ways of making the anisotropies radial instead of in a single cartesian
+       coordinate direction.
+        - Easiest way is probably to figure out ways of generating velocities from the
+          overdensity field since then RSDs are simply caused by the LOS component.
+        - Added bonus: In this method, the lognormal realization would only depend on
+          the bias of the desired tracer, which would allow for a mock with redshift
+          evolution built in by allowing the bias to change with position.
