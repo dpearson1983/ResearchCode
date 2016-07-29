@@ -1,0 +1,18 @@
+# This is a test parameter file
+
+# double precision floating point values are below
+double bias     =   2.339       # This is the galaxy bias
+                                # maybe the above comment needed a second line
+double growth   =   0.759
+
+# integer values are below this comment
+int    numGals  =   500000
+
+# vectors of doubles below here
+vector<double> bs = 2.339,1.372,1.859 # I hope this works!
+vector<int> ngs = 500000,250000
+
+# strings below here
+string inFile   =   InFile.dat
+string outFile  =   OutFile.dat
+string someChar = A
