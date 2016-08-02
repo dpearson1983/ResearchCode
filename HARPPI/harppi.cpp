@@ -28,7 +28,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <typeinfo>
 #include "harppi.h"
 
 bool parameters::assignParams(std::string type, std::string key, std::string val) {
