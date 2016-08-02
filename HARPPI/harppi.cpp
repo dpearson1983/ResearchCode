@@ -1,3 +1,27 @@
+/* harppi.cpp v1.1
+ * Updated: August 2, 2016
+ * 
+ * LICENSE: GPL v3
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
+ * 
+ * UPDATES:
+ * Changed the error messaging when calling the getd, geti, gets, or getb
+ * functions to be more informative. Now it should let users know if they
+ * are simply using the wrong get function or if they are calling a 
+ * parameter that does not exist.
+ */
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -170,11 +194,27 @@ double parameters::getd(std::string key, int element) {
         return parameters::dvectors[key][element];
     } else if (parameters::ivectors.count(key) == 1) {
         return double(parameters::ivectors[key][element]);
+    } else if (parameters::strings.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a string not a numeric type.\n";
+        message << "Use the gets() function instead of getd()." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::bools.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a boolean not a numeric type.\n";
+        message << "Use the getb() function instead of getd()." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::svectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<string> not a numeric type.\n";
+        message << "Use the gets() function instead of getd()." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
-        message << "ERROR: Parameter " << key << " is not a numeric type." << std::endl;
+        message << "ERROR: Parameter " << key << " does not exist in the parameter file.\n";
+        message << "Add " << key << " to your parameter file as a numeric type." << std::endl;
         throw std::runtime_error(message.str());
-    }       
+    }
 }
 
 int parameters::geti(std::string key, int element) {
@@ -186,9 +226,21 @@ int parameters::geti(std::string key, int element) {
         return int(parameters::dvectors[key][element]);
     } else if (parameters::ivectors.count(key) == 1) {
         return parameters::ivectors[key][element];
+    } else if (parameters::strings.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a string not a numeric type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::bools.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a boolean not a numeric type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::svectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<string> not a numeric type." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
-        message << "ERROR: Parameter " << key << " is not a numeric type." << std::endl;
+        message << "ERROR: Parameter " << key << " does not exist in the parameter file." << std::endl;
         throw std::runtime_error(message.str());
     }
 }
@@ -196,9 +248,33 @@ int parameters::geti(std::string key, int element) {
 bool parameters::getb(std::string key, int element) {
     if (parameters::bools.count(key) == 1) {
         return parameters::bools[key];
+    } else if (parameters::ints.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is an int not a boolean type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::doubles.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is an double not a boolean type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::dvectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is an vector<double> not a boolean type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::ivectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is an vector<int> not a boolean type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::strings.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a string not a boolean type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::svectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<string> not a boolean type." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
-        message << "ERROR: Parameter " << key << " is not a boolean type." << std::endl;
+        message << "ERROR: Parameter " << key << " does not exist in the parameter file." << std::endl;
         throw std::runtime_error(message.str());
     }
 }
@@ -208,9 +284,29 @@ std::string parameters::gets(std::string key, int element) {
         return parameters::strings[key];
     } else if (parameters::svectors.count(key) == 1) {
         return parameters::svectors[key][element];
+    } else if (parameters::ints.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is an int not a string type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::doubles.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a double not a string type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::dvectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<double> not a string type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::ivectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<int> not a string type." << std::endl;
+        throw std::runtime_error(message.str());
+    } else if (parameters::bools.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a boolean not a string type." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
-        message << "ERROR: Parameter " << key << " is not a string type." << std::endl;
+        message << "ERROR: Parameter " << key << " does not exist in the parameter file." << std::endl;
         throw std::runtime_error(message.str());
     }
 }
