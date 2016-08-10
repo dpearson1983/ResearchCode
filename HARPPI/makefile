@@ -6,6 +6,8 @@ harppimake: harppi.cpp
 	$(CXX) $(CXXFLAGS) -c -o harppi.a harppi.cpp
 	
 localinstall: harppi.cpp
+	mkdir $(HOME)/include
+	mkdir $(HOME)/lib
 	cp harppi.h $(HOME)/include/
 	$(CXX) $(CXXFLAGS) -c -o $(HOME)/lib/libharppi.a harppi.cpp
 	
