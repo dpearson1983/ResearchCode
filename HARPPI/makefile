@@ -3,7 +3,7 @@ CXXFLAGS= -march=native -mtune=native -O3
 DEPS=harppi.h
 
 harppimake: harppi.cpp
-	$(CXX) $(CXXFLAGS) -c -o harppi.a harppi.cpp
+	$(CXX) $(CXXFLAGS) -c -o libharppi.a harppi.cpp
 	
 localinstall: harppi.cpp
 	mkdir -p $(HOME)/include

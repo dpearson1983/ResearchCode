@@ -49,13 +49,26 @@ int main(int argc, char *argv[]) {
         std::string infile = filename(p.gets("inBase"), p.geti("digits"), file, p.gets("ext"));
         std::string outfile = filename(p.gets("outBase"), p.geti("digits"), file, p.gets("ext"));
         
-        std::vector< double > modparams;
+        std::vector< double > modParams;
         std::vector< bool > limitParams;
+        std::vector< double > paramMins;
+        std::vector< double > paramMaxs;
         for (int i = 0; i < p.geti("numParams"); ++i) {
-            modparams.push_back(p.getd("paramVals", i));
-            limitParams.push_back(p.getb("limitParams", i));
+            modParams.push_back(p.getd("paramVals", i));
+            if (p.checkParam("limitParams")) {
+                limitParams.push_back(p.getb("limitParams", i));
+                paramMins.push_back(p.getd("paramMins", i));
+                paramMaxs.push_back(p.getd("paramMins", i));
+            }
         }
         
-        std::vector< double > data;
-        readData(infile, p.getb("xvals"), p.geti("numVals"), &data[0]);
+        std::vector< double > data(p.geti("numVals"));
+        std::vector< double > xvals(p.geti("numVals"));
+        readData(infile, p.geti("numVals"), &data[0], &xvals[0]);
+        
+        double variance = variaceCalc(data, modParams, paramMins, paramMaxs, limitParams,
+                                      xvals, p.geti("numVals"), p.geti("numParams"), Psi,
+                                      detPsi);
+        
+        
         

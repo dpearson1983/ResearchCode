@@ -1,12 +1,13 @@
 #include <fstream>
+#include <vector>
 #include <string>
+#include <random>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_permutation.h>
 
-void ModelVals(double *model, double *modparams, int numParams, int N, double xmin, 
-               double xbinWidth);
+void ModelVals(double *model, double *modparams, int numParams, int N, double *xvals);
 
 double chisqCalc(double *data, double *model, gsl_matrix *Psi, int N) {
     double result = 0.0;
@@ -56,18 +57,11 @@ void readData(std::string file, bool xvals, int numVals, double *data) {
     std::ifstream fin;
     
     fin.open(p.gets("dataFile").c_str(), std::ios::in);
-    if (p.getb("xvals")) {
-        for (int i = 0; i < p.geti("numVals"); ++i) {
-            double x, y;
-            fin >> x >> y;
-            data.push_back(y);
-        }
-    } else {
-        for (int i = 0; i < p.geti("numVals"); ++i) {
-            double y;
-            fin >> y;
-            data.push_back(y);
-        }
+    for (int i = 0; i < p.geti("numVals"); ++i) {
+        double x, y;
+        fin >> x >> y;
+        data.push_back(y);
+        xvals.push_back(x);
     }
     fin.close();
 }
@@ -97,7 +91,79 @@ void calcPsi(gsl_matrix *cov, gsl_matrix *Psi, double *detPsi, int N, int sample
     gsl_permutation_free(permLU);
 }
 
-double varianceCalc(double *data, double *modParams, double *paramMins, double *paramMaxs, 
-                    bool *limitParams, int N, int numParams, gsl_matrix *Psi, double detPsi) {
+double varianceCalc(std::vector<double> data, std::vector<double> modParams,
+                    std::vector<double> paramMins, std::vector<double> paramMaxs, 
+                    std::vector<bool> limitParams, std::vector<double> xvals, int N, 
+                    int numParams, gsl_matrix *Psi, double detPsi) {
+    double variance = 0.1;
+    double acceptance = 1.0;
     
+    std::random_device seeder;
+    std::mt19937_64 gen(seeder());
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
     
+    std::vector<double> currentVals(numParams);
+    std::vector<double> vars(numParams);
+    std::vector<double> model(N);
+    
+    ModelVals(&model[0], &modParams[0], numParams, N, &xvals[0]);
+    double chisq_initial = chisqCalc(&data[0], &model[0], Psi, N);
+    double L_initial = likelihood(chisq_initial, detPsi);
+    
+    while (acceptance >= 0.235 || acceptance <= 0.233) {
+        int accept = 0;
+        for (int i = 0; i < numParams; ++i) {
+            currentVals[i] = modParams[i];
+            vars[i] = modParams[i]*variance;
+        }
+        double Li = L_initial;
+        std::vector<double> trialParams(numParams);
+        for (int i = 0; i < 1000; ++i) {
+            for (int param = 0; param < numParams; ++param) {
+                if (limitParams[param]) {
+                    if (currentVals[param]+vars[param] > paramMaxs[param]) {
+                        double center = paramMaxs[param]-vars[param];
+                        trialParams[param] = center+vars[param]*dist(gen);
+                    } else if (currentVals[param]-vars[param] < paramMins[param]) {
+                        double center = paramMins[param]+vars[param];
+                        trialParams[param] = center+vars[param]*dist(gen);
+                    } else {
+                        trialParams[param] = currentVals[param]+vars[param]*dist(gen);
+                    }
+                } else {
+                    trialParams[param] = currentVals[param]+vars[param]*dist(gen);
+                }
+            }
+            
+            ModelVals(&model[0], &trialParams[0], numParams, N, &xvals[0]);
+            double chisq = chisqCalc(&data[0], &model[0], Psi, N);
+            double L = likelihood(chisq, detPsi);
+            double ratio = L/Li;
+            double test = (dist(gen) + 1.0)/2.0;
+            
+            if (ratio > test) {
+                for (int param = 0; param < numParams; ++param) {
+                    currentVals[i] = trialParams[i];
+                }
+                Li = L;
+                ++accept;
+            }
+        }
+        acceptance = double(accept)/1000.0;
+        if (acceptance >= 0.235) {
+            variance *= 1.01;
+        }
+        if (acceptance <= 0.233) {
+            variance *= 0.99;
+        }
+    }
+    
+    return variance;
+}
+
+void runMCMC(std::vector<double> data, std::vector<double> modParams,
+                    std::vector<double> paramMins, std::vector<double> paramMaxs, 
+                    std::vector<bool> limitParams, std::vector<double> xvals, int N, 
+                    int numParams, gsl_matrix *Psi, double detPsi) {
+    
+}

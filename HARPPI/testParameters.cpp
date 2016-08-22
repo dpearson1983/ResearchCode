@@ -25,6 +25,10 @@ int main(int argc, char *argv[]) {
     std::cout << "The input growth factor is: " << p.getd("growth") << std::endl;
     std::cout << "The input number of galaxies is: " << p.geti("numGals") << std::endl;
     
+    if (p.checkParam("test")) {
+        std::cout << "There is a parameter named test in the file." << std::endl;
+    }
+    
     double mono = p.getd("bias")*p.getd("bias") 
                   + (2.0/3.0)*p.getd("growth")*p.getd("bias")
                   + (1.0/5.0)*p.getd("growth")*p.getd("growth");
