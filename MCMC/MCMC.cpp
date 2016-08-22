@@ -70,5 +70,12 @@ int main(int argc, char *argv[]) {
                                       xvals, p.geti("numVals"), p.geti("numParams"), Psi,
                                       detPsi);
         
+        std::vector< std::vector< std::vector<double> > > reals(p.geti("numThreads"));
+        std::vector< std::vector<double> > averages(p.geti("numThreads"));
+        std::vector< std::vector<double> > stdevs(p.geti("numThreads"));
         
-        
+        omp_set_num_threads(p.geti("numThreads"));
+        #pragma omp parallel
+        {
+            
+        }
