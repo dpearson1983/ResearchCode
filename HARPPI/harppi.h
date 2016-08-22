@@ -17,6 +17,7 @@ class parameters{
     std::map <std::string, std::vector<double> > dvectors;
     std::map <std::string, std::vector<int> > ivectors;
     std::map <std::string, std::vector<std::string> > svectors;
+    std::map <std::string, std::vector<bool> > bvectors;
     
     bool assignParams(std::string type, std::string key, std::string val);
     
@@ -34,6 +35,8 @@ class parameters{
         bool getb(std::string key, int element = 0);
         
         std::string gets(std::string key, int element = 0);
+        
+        bool checkParam(std::string key);
 };
 
 #endif

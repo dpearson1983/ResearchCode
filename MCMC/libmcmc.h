@@ -9,6 +9,8 @@ double likelihood(double chisq, double detPsi);
 
 void readCov(std::string covfile, int N, gsl_matrix *cov, std::string format);
 
+void readData(std::string file, bool xvals, int numVals, double *data);
+
 void calcPsi(gsl_matrix *cov, gsl_matrix *Psi, double *detPsi, int N, int samples);
 
 #endif

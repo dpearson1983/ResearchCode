@@ -65,6 +65,16 @@ bool parameters::assignParams(std::string type, std::string key, std::string val
             vec.push_back(s);
         }
         parameters::svectors.insert(std::pair<std::string, std::vector<std::string> >(key, vec));
+    } else if (type == "vector<bool>") {
+        std::vector<bool> vec;
+        std::istringstream iss(val);
+        std::string s;
+        while (std::getline(iss, s, ',')) {
+            bool b;
+            std::istringstream(s) >> std::boolalpha >> b;
+            vec.push_back(b);
+        }
+        parameters::bvectors.insert(std::pair<std::string, std::vector<bool> >(key, vec));
     } else {
         std::cout << "WARNING: Unrecognized type specified in parameter file.\n";
         std::cout << "    Type " << type << " is not currently supported.\n";
@@ -110,6 +120,8 @@ void parameters::print() {
                                                         parameters::ivectors.begin();
     std::map<std::string, std::vector<std::string> >::iterator it_svectors =
                                                         parameters::svectors.begin();
+    std::map<std::string, std::vector<bool> >::iterator it_bvectors = 
+                                                        parameters::bvectors.begin();
     
     for (it_string = parameters::strings.begin(); it_string != parameters::strings.end(); ++it_string)
         std::cout << "string " << it_string->first << " = " << it_string->second << std::endl;
@@ -118,7 +130,7 @@ void parameters::print() {
     for (it_double = parameters::doubles.begin(); it_double != parameters::doubles.end(); ++it_double)
         std::cout << "double " << it_double->first << " = " << it_double->second << std::endl;
     for (it_bool = parameters::bools.begin(); it_bool != parameters::bools.end(); ++it_bool)
-        std::cout << "bool " << it_bool->first << " = " << it_bool->second << std::endl;
+        std::cout << "bool " << it_bool->first << " = " << std::boolalpha << it_bool->second << std::endl;
     for (it_dvectors = parameters::dvectors.begin(); it_dvectors != parameters::dvectors.end(); ++it_dvectors) {
         int numVals = parameters::dvectors[it_dvectors->first].size();
         std::cout << "vector<double> " << it_dvectors->first << " = ";
@@ -142,6 +154,15 @@ void parameters::print() {
         std::cout << "vector<string> " << it_svectors->first << " = ";
         for (int i = 0; i < numVals; ++i) {
             std::cout << parameters::svectors[it_svectors->first][i];
+            if (i != numVals-1) std::cout << ",";
+        }
+        std::cout << std::endl;
+    }
+    for (it_bvectors = parameters::bvectors.begin(); it_bvectors != parameters::bvectors.end(); ++it_bvectors) {
+        int numVals = parameters::bvectors[it_bvectors->first].size();
+        std::cout << "vector<bool> " << it_bvectors->first << " = ";
+        for (int i = 0; i < numVals; ++i) {
+            std::cout << std::boolalpha << parameters::bvectors[it_bvectors->first][i];
             if (i != numVals-1) std::cout << ",";
         }
         std::cout << std::endl;
@@ -173,6 +194,9 @@ void parameters::check_min(std::vector<typekey> neededParams) {
             else std::cout << neededParams[i].type << " " << neededParams[i].key << " not found." << std::endl;
         } else if (neededParams[i].type == "vector<string>") {
             if (parameters::svectors.count(neededParams[i].key) == 1) ++count;
+            else std::cout << neededParams[i].type << " " << neededParams[i].key << " not found." << std::endl;
+        } else if (neededParams[i].type == "vector<bool>") {
+            if (parameters::bvectors.count(neededParams[i].key) == 1) ++count;
             else std::cout << neededParams[i].type << " " << neededParams[i].key << " not found." << std::endl;
         }
     }
@@ -208,6 +232,10 @@ double parameters::getd(std::string key, int element) {
         message << "ERROR: Parameter " << key << " is a vector<string> not a numeric type.\n";
         message << "Use the gets() function instead of getd()." << std::endl;
         throw std::runtime_error(message.str());
+    } else if (parameters::bvectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<bool> not a numeric type." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
         message << "ERROR: Parameter " << key << " does not exist in the parameter file.\n";
@@ -237,6 +265,10 @@ int parameters::geti(std::string key, int element) {
         std::stringstream message;
         message << "ERROR: Parameter " << key << " is a vector<string> not a numeric type." << std::endl;
         throw std::runtime_error(message.str());
+    } else if (parameters::bvectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<bool> not a numeric type." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
         message << "ERROR: Parameter " << key << " does not exist in the parameter file." << std::endl;
@@ -247,6 +279,8 @@ int parameters::geti(std::string key, int element) {
 bool parameters::getb(std::string key, int element) {
     if (parameters::bools.count(key) == 1) {
         return parameters::bools[key];
+    } else if (parameters::bvectors.count(key) == 1) {
+        return parameters::bvectors[key][element];
     } else if (parameters::ints.count(key) == 1) {
         std::stringstream message;
         message << "ERROR: Parameter " << key << " is an int not a boolean type." << std::endl;
@@ -303,9 +337,35 @@ std::string parameters::gets(std::string key, int element) {
         std::stringstream message;
         message << "ERROR: Parameter " << key << " is a boolean not a string type." << std::endl;
         throw std::runtime_error(message.str());
+    } else if (parameters::bvectors.count(key) == 1) {
+        std::stringstream message;
+        message << "ERROR: Parameter " << key << " is a vector<bool> not a string type." << std::endl;
+        throw std::runtime_error(message.str());
     } else {
         std::stringstream message;
         message << "ERROR: Parameter " << key << " does not exist in the parameter file." << std::endl;
         throw std::runtime_error(message.str());
+    }
+}
+
+bool parameters::checkParam(std::string key) {
+    if (parameters::strings.count(key) == 1) {
+        return true;
+    } else if (parameters::ints.count(key) == 1) {
+        return true;
+    } else if (parameters::doubles.count(key) == 1) { 
+        return true;
+    } else if (parameters::bools.count(key) == 1) {
+        return true;
+    } else if (parameters::dvectors.count(key) == 1) {
+        return true;
+    } else if (parameters::ivectors.count(key) == 1) {
+        return true;
+    } else if (parameters::svectors.count(key) == 1) {
+        return true;
+    } else if (parameters::bvectors.count(key) == 1) {
+        return true;
+    } else {
+        return false;
     }
 }

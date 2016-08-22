@@ -36,7 +36,26 @@ int main(int argc, char *argv[]) {
     std::ifstream fin;
     std::ofstream fout;
     
-    std::vector< double > modparams;
-    for (int i = 0; i < p.geti["numParams"]; ++i) {
-        modparams.push_back(p.getd("paramVals", i));
-    }
+    gsl_matrix *cov = gsl_matrix_alloc(p.geti("numVals"), p.geti("numVals"));
+    gsl_matrix *Psi = gsl_matrix_alloc(p.geti("numVals"), p.gets("numVals"));
+    double detPsi;
+    
+    readCov(p.gets("covFile"), p.geti("numVals"), cov, p.gets("covFormat"));
+    calcPsi(cov, Psi, &detPsi, p.geti("numVals"), p.geti("numMeas"));
+    
+    gsl_matrix_free(cov);
+    
+    for (int file = p.geti("startNum"); file < p.geti("numFiles")+p.geti("startNum"); ++file) {
+        std::string infile = filename(p.gets("inBase"), p.geti("digits"), file, p.gets("ext"));
+        std::string outfile = filename(p.gets("outBase"), p.geti("digits"), file, p.gets("ext"));
+        
+        std::vector< double > modparams;
+        std::vector< bool > limitParams;
+        for (int i = 0; i < p.geti("numParams"); ++i) {
+            modparams.push_back(p.getd("paramVals", i));
+            limitParams.push_back(p.getb("limitParams", i));
+        }
+        
+        std::vector< double > data;
+        readData(infile, p.getb("xvals"), p.geti("numVals"), &data[0]);
+        

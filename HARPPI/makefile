@@ -6,14 +6,14 @@ harppimake: harppi.cpp
 	$(CXX) $(CXXFLAGS) -c -o harppi.a harppi.cpp
 	
 localinstall: harppi.cpp
-	mkdir $(HOME)/include
-	mkdir $(HOME)/lib
+	mkdir -p $(HOME)/include
+	mkdir -p $(HOME)/lib
 	cp harppi.h $(HOME)/include/
 	$(CXX) $(CXXFLAGS) -c -o $(HOME)/lib/libharppi.a harppi.cpp
 	
 globalinstall: harppi.cpp
 	cp harrpi.h /usr/include
-	mkdir /usr/lib/harppi
+	mkdir -p /usr/lib/harppi
 	$(CXX) $(CXXFLAGS) -c -o /usr/lib/harppi/harppi.a harppi.cpp
 	cd /usr/lib
 	ls -l harppi/harppi.a

@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
         
         fout.open(outfile.c_str(), std::ios::out);
         for (int i = 0; i < dataPoints; ++i) {
-            double x = p.getd("xmin") + i*dx;
+            double x = p.getd("xmin") + (i + 0.5)*dx;
             double y = p.getd("m")*x + p.getd("b");
             y += dist(gen)*y;
             fout << x << " " << y << std::endl;

@@ -52,6 +52,26 @@ void readCov(std::string covfile, int N, gsl_matrix *cov, std::string format) {
     fin.close();
 }
 
+void readData(std::string file, bool xvals, int numVals, double *data) {
+    std::ifstream fin;
+    
+    fin.open(p.gets("dataFile").c_str(), std::ios::in);
+    if (p.getb("xvals")) {
+        for (int i = 0; i < p.geti("numVals"); ++i) {
+            double x, y;
+            fin >> x >> y;
+            data.push_back(y);
+        }
+    } else {
+        for (int i = 0; i < p.geti("numVals"); ++i) {
+            double y;
+            fin >> y;
+            data.push_back(y);
+        }
+    }
+    fin.close();
+}
+
 void calcPsi(gsl_matrix *cov, gsl_matrix *Psi, double *detPsi, int N, int samples) {
     gsl_permutation *perm = gsl_permutation_alloc(N);
     gsl_permutation *permLU = gsl_permutation_alloc(N);

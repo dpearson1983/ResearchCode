@@ -11,8 +11,10 @@ int    numGals  =   500000
 # vectors of doubles below here
 vector<double> bs = 2.339,1.372,1.859 # I hope this works!
 vector<int> ngs = 500000,250000
+vector<bool> tfs = true,true,false,true
 
 # strings below here
 string inFile   =   InFile.dat
 string outFile  =   OutFile.dat
 string someChar = A
+bool    test    =   true

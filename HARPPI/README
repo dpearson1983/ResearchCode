@@ -18,4 +18,6 @@ LICENSE: GPL v3
 
 ABOUT:
     This library is designed to be able to parse very human readable parameter
-    files with minimal setup in the code. 
+    files with minimal setup in the code. See the include harppi.pdf for more
+    details, including installation instructions, parameter file setup and 
+    how to use the library.
