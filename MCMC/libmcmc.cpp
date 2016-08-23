@@ -7,13 +7,15 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_permutation.h>
 
-void ModelVals(double *model, double *modparams, int numParams, int N, double *xvals);
+void ModelVals(double *model, std::vector<double> modparams, int numParams, int N, 
+               std::vector<double> xvals);
 
-double chisqCalc(double *data, double *model, gsl_matrix *Psi, int N) {
+double chisqCalc(std::vector<double> data, std::vector<double> model, std::vector<double> Psi, 
+                 int N) {
     double result = 0.0;
     for (int i = 0; i < N; ++i) {
         for (int j = i; j < N; ++j) {
-            result += (data[i]-model[i])*gsl_matrix_get(Psi, i, j)*(data[j]-model(j));
+            result += (data[i]-model[i])*Psi[j+N*i]*(data[j]-model(j));
         }
     }
     return result;
@@ -94,7 +96,7 @@ void calcPsi(gsl_matrix *cov, gsl_matrix *Psi, double *detPsi, int N, int sample
 double varianceCalc(std::vector<double> data, std::vector<double> modParams,
                     std::vector<double> paramMins, std::vector<double> paramMaxs, 
                     std::vector<bool> limitParams, std::vector<double> xvals, int N, 
-                    int numParams, gsl_matrix *Psi, double detPsi) {
+                    int numParams, std::vector<double> Psi, double detPsi) {
     double variance = 0.1;
     double acceptance = 1.0;
     
@@ -106,8 +108,8 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
     std::vector<double> vars(numParams);
     std::vector<double> model(N);
     
-    ModelVals(&model[0], &modParams[0], numParams, N, &xvals[0]);
-    double chisq_initial = chisqCalc(&data[0], &model[0], Psi, N);
+    ModelVals(&model[0], modParams, numParams, N, xvals);
+    double chisq_initial = chisqCalc(data, model, Psi, N);
     double L_initial = likelihood(chisq_initial, detPsi);
     
     while (acceptance >= 0.235 || acceptance <= 0.233) {
@@ -135,8 +137,8 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
                 }
             }
             
-            ModelVals(&model[0], &trialParams[0], numParams, N, &xvals[0]);
-            double chisq = chisqCalc(&data[0], &model[0], Psi, N);
+            ModelVals(&model[0], trialParams, numParams, N, xvals);
+            double chisq = chisqCalc(data, model, Psi, N);
             double L = likelihood(chisq, detPsi);
             double ratio = L/Li;
             double test = (dist(gen) + 1.0)/2.0;
@@ -159,11 +161,4 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
     }
     
     return variance;
-}
-
-void runMCMC(std::vector<double> data, std::vector<double> modParams,
-                    std::vector<double> paramMins, std::vector<double> paramMaxs, 
-                    std::vector<bool> limitParams, std::vector<double> xvals, int N, 
-                    int numParams, gsl_matrix *Psi, double detPsi) {
-    
 }
