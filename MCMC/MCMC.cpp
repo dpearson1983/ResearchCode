@@ -55,8 +55,6 @@ int main(int argc, char *argv[]) {
     for (int file = p.geti("startNum"); file < p.geti("numFiles")+p.geti("startNum"); ++file) {
         std::string infile = filename(p.gets("inBase"), p.geti("digits"), file, p.gets("ext"));
         std::string outfile = filename(p.gets("outBase"), p.geti("digits"), file, p.gets("ext"));
-        std::string covfile = filename(p.gets("covBase"), p.geti("digits"), file, p.gets("ext"));
-        std::string realsfile = filename(p.gets("realsBase"), p.geti("digits"), file, p.gets("ext"));
         
         std::vector< double > modParams;
         std::vector< std::string > paramNames;
@@ -224,3 +222,22 @@ int main(int argc, char *argv[]) {
         }
         fout.close();
         
+        if (p.getb("covarianceOut")) {
+            std::string covfile = filename(p.gets("covBase"), p.geti("digits"), file, p.gets("ext"));
+            fout.open(covfile.c_str(), std::ios::out);
+            fout.precision(15);
+            for (int i = 0; i < numParams; ++i) {
+                for (int j = i; j < numParams; ++j) {
+                    
+                }
+            }
+        }
+        
+        if (p.getb("realsOut")) {
+            std::string realsfile = filename(p.gets("realsBase"), p.geti("digits"), file, p.gets("ext"));
+        }
+        
+    }
+    
+    return 0;
+}
