@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < dataPoints; ++i) {
             double x = p.getd("xmin") + (i + 0.5)*dx;
             double y = p.getd("m")*x + p.getd("b");
-            y += dist(gen)*y;
+            y += dist(gen);
             fout << x << " " << y << std::endl;
         }
         fout.close();
