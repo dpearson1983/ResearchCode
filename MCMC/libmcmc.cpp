@@ -1,21 +1,23 @@
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
 #include <random>
+#include <cmath>
+#include <model.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_permutation.h>
 
-void ModelVals(double *model, std::vector<double> modparams, int numParams, int N, 
-               std::vector<double> xvals);
+long double pi = acos(-1.0);
 
 double chisqCalc(std::vector<double> data, std::vector<double> model, std::vector<double> Psi, 
                  int N) {
     double result = 0.0;
     for (int i = 0; i < N; ++i) {
         for (int j = i; j < N; ++j) {
-            result += (data[i]-model[i])*Psi[j+N*i]*(data[j]-model(j));
+            result += (data[i]-model[i])*Psi[j+N*i]*(data[j]-model[j]);
         }
     }
     return result;
@@ -55,15 +57,12 @@ void readCov(std::string covfile, int N, gsl_matrix *cov, std::string format) {
     fin.close();
 }
 
-void readData(std::string file, bool xvals, int numVals, double *data) {
+void readData(std::string file, int numVals, double *data, double *xvals) {
     std::ifstream fin;
     
-    fin.open(p.gets("dataFile").c_str(), std::ios::in);
-    for (int i = 0; i < p.geti("numVals"); ++i) {
-        double x, y;
-        fin >> x >> y;
-        data.push_back(y);
-        xvals.push_back(x);
+    fin.open(file.c_str(), std::ios::in);
+    for (int i = 0; i < numVals; ++i) {
+        fin >> xvals[i] >> data[i];
     }
     fin.close();
 }
@@ -100,18 +99,22 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
     double variance = 0.1;
     double acceptance = 1.0;
     
+    std::cout << "         Declaring random generator stuff..." << std::endl;
     std::random_device seeder;
     std::mt19937_64 gen(seeder());
     std::uniform_real_distribution<double> dist(-1.0, 1.0);
     
+    std::cout << "         Declaring some vectors..." << std::endl;
     std::vector<double> currentVals(numParams);
     std::vector<double> vars(numParams);
     std::vector<double> model(N);
     
-    ModelVals(&model[0], modParams, numParams, N, xvals);
+    std::cout << "         Calculating initial model, chi^2 and likelihood..." << std::endl;
+    ModelVals(model, modParams, numParams, N, xvals);
     double chisq_initial = chisqCalc(data, model, Psi, N);
     double L_initial = likelihood(chisq_initial, detPsi);
     
+    std::cout << "         Tuning..." << std::endl;
     while (acceptance >= 0.235 || acceptance <= 0.233) {
         int accept = 0;
         for (int i = 0; i < numParams; ++i) {
@@ -137,7 +140,7 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
                 }
             }
             
-            ModelVals(&model[0], trialParams, numParams, N, xvals);
+            ModelVals(model, trialParams, numParams, N, xvals);
             double chisq = chisqCalc(data, model, Psi, N);
             double L = likelihood(chisq, detPsi);
             double ratio = L/Li;
@@ -145,13 +148,18 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
             
             if (ratio > test) {
                 for (int param = 0; param < numParams; ++param) {
-                    currentVals[i] = trialParams[i];
+                    currentVals[param] = trialParams[param];
                 }
                 Li = L;
                 ++accept;
             }
         }
+        
         acceptance = double(accept)/1000.0;
+        std::cout << "      Acceptance ratio =";
+        std::cout.width(15);
+        std::cout << acceptance << "\r";
+        std::cout.flush();
         if (acceptance >= 0.235) {
             variance *= 1.01;
         }
@@ -159,6 +167,7 @@ double varianceCalc(std::vector<double> data, std::vector<double> modParams,
             variance *= 0.99;
         }
     }
+    std::cout << std::endl;
     
     return variance;
 }

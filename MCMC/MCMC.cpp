@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <random>
 #include <cmath>
 #include <omp.h>
 #include <harppi.h>
@@ -32,17 +33,22 @@ int main(int argc, char *argv[]) {
     }
     parameters p;
     p.readParams(argv[1]);
+    p.print();
     
     std::ifstream fin;
     std::ofstream fout;
     std::ofstream sout;
     
+    std::cout << "Creating matrix for covaraince and inverse..." << std::endl;
     gsl_matrix *cov = gsl_matrix_alloc(p.geti("numVals"), p.geti("numVals"));
-    gsl_matrix *Psi = gsl_matrix_alloc(p.geti("numVals"), p.gets("numVals"));
+    gsl_matrix *Psi = gsl_matrix_alloc(p.geti("numVals"), p.geti("numVals"));
     double detPsi;
     
+    std::cout << "Reading in covaraince matrix..." << std::endl;
     readCov(p.gets("covFile"), p.geti("numVals"), cov, p.gets("covFormat"));
+    std::cout << "Calculating inverse covariance..." << std::endl;
     calcPsi(cov, Psi, &detPsi, p.geti("numVals"), p.geti("numMeas"));
+    std::cout << "Transfering to vector..." << std::endl;
     std::vector<double> PsiVec(p.geti("numVals")*p.geti("numVals"));
     for (int i = 0; i < p.geti("numVals"); ++i) {
         for (int j = 0; j < p.geti("numVals"); ++j) {
@@ -50,37 +56,50 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    std::cout << "Freeing gsl matrices..." << std::endl;
     gsl_matrix_free(cov);
     gsl_matrix_free(Psi);
     
+    std::cout << "Starting to process " << p.geti("numFiles") << " files..." << std::endl;
     sout.open(p.gets("summaryFile").c_str(), std::ios::out);
     for (int file = p.geti("startNum"); file < p.geti("numFiles")+p.geti("startNum"); ++file) {
         std::string infile = filename(p.gets("inBase"), p.geti("digits"), file, p.gets("ext"));
         std::string outfile = filename(p.gets("outBase"), p.geti("digits"), file, p.gets("ext"));
         
-        std::vector< double > modParams;
-        std::vector< std::string > paramNames;
-        std::vector< bool > limitParams;
-        std::vector< double > paramMins;
-        std::vector< double > paramMaxs;
+        std::cout << "    Processing " << infile << "..." << std::endl;
+        
+        std::cout << "      Copying parameter info to convenient storage..." << std::endl;
+        std::vector< double > modParams(p.geti("numParams"));
+        std::vector< std::string > paramNames(p.geti("numParams"));
+        std::vector< bool > limitParams(p.geti("numParams"));
+        std::vector< double > paramMins(p.geti("numParams"));
+        std::vector< double > paramMaxs(p.geti("numParams"));
         for (int i = 0; i < p.geti("numParams"); ++i) {
-            modParams.push_back(p.getd("paramVals", i));
-            paramNames.push_back(p.gets("paramNames", i));
+            modParams[i] = p.getd("paramVals", i);
+            paramNames[i] = p.gets("paramNames", i);
             if (p.checkParam("limitParams")) {
-                limitParams.push_back(p.getb("limitParams", i));
-                paramMins.push_back(p.getd("paramMins", i));
-                paramMaxs.push_back(p.getd("paramMins", i));
+                limitParams[i] = p.getb("limitParams", i);
+                paramMins[i] = p.getd("paramMins", i);
+                paramMaxs[i] = p.getd("paramMaxs", i);
+            } else {
+                limitParams[i] = false;
+                paramMins[i] = -100.0;
+                paramMaxs[i] = 100.0;
             }
         }
         
+        std::cout << "      Creating data objects..." << std::endl;
         std::vector< double > data(p.geti("numVals"));
         std::vector< double > xvals(p.geti("numVals"));
+        std::cout << "      Reading in data..." << std::endl;
         readData(infile, p.geti("numVals"), &data[0], &xvals[0]);
         
-        double variance = variaceCalc(data, modParams, paramMins, paramMaxs, limitParams,
+        std::cout << "      Tuning acceptance ratio..." << std::endl;
+        double variance = varianceCalc(data, modParams, paramMins, paramMaxs, limitParams,
                                       xvals, p.geti("numVals"), p.geti("numParams"), PsiVec,
                                       detPsi);
-        
+        std::cout << "      variance = " << variance << std::endl;
+        std::cout << "      Declaring objects to store MCMC info..." << std::endl;
         std::vector< std::vector< std::vector<double> > > reals(p.geti("numThreads"));
         std::vector< std::vector<double> > averages(p.geti("numThreads"));
         std::vector< std::vector<double> > stdevs(p.geti("numThreads"));
@@ -102,11 +121,14 @@ int main(int argc, char *argv[]) {
             }
         }
         
+        std::cout << "      MCMC running chains until convergence..." << std::endl;
         omp_set_num_threads(numThreads);
         bool converged = false;
         double criteria = p.getd("convergenceCriteria");
         int loop = 0;
         while (!converged) {
+            std::cout << "         .";
+            std::cout.flush();
             #pragma omp parallel
             {
                 std::random_device seeder;
@@ -124,7 +146,7 @@ int main(int argc, char *argv[]) {
                     for (int i = 0; i < numParams; ++i)
                         currentParams[i] = modParams[i];
                 }
-                ModelVals(&model[0], currentParams, numParasm, numVals, xvals);
+                ModelVals(model, currentParams, numParams, numVals, xvals);
                 double chisq_initial = chisqCalc(data, model, PsiVec, numVals);
                 double L_initial = likelihood(chisq_initial, detPsi);
                 for (int draw = 0; draw < numDraws; ++draw) {
@@ -145,7 +167,7 @@ int main(int argc, char *argv[]) {
                         }
                     }
                     
-                    ModelVals(&model[0], trialParams, numParams, numVals, xvals);
+                    ModelVals(model, trialParams, numParams, numVals, xvals);
                     double chisq = chisqCalc(data, model, PsiVec, numVals);
                     double L = likelihood(chisq, detPsi);
                     double ratio = L/L_initial;
@@ -153,8 +175,8 @@ int main(int argc, char *argv[]) {
                     
                     if (ratio > test) {
                         L_initial = L;
-                        for (int param = 0; param < numParams, ++param)
-                            currentParams[i] = trialParams[i];
+                        for (int param = 0; param < numParams; ++param)
+                            currentParams[param] = trialParams[param];
                     }
                     
                     reals[tid].push_back(currentParams);
@@ -165,73 +187,100 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
+            std::cout << ".";
+            std::cout.flush();
             // Test for convergence here
             std::vector<double> avgavg(numParams);
             std::vector<double> varavg(numParams);
             for (int i = 0; i < numThreads; ++i) {
-                for (int param = 0; param < numParams; ++i) {
+                for (int param = 0; param < numParams; ++param) {
                     avgavg[param] += averages[i][param]/double(numThreads);
                 }
             }
             
+            std::cout << ".";
+            std::cout.flush();
             for (int i = 0; i < numThreads; ++i) {
-                for (int param = 0; param < numParams; ++i) {
-                    varavg[param] += ((averages[i][param]-avgavg[param])*(averages[i][param]-avgavg[param]))/(Nthreads - 1.0);
+                for (int param = 0; param < numParams; ++param) {
+                    varavg[param] += ((averages[i][param]-avgavg[param])*(averages[i][param]-avgavg[param]))/(numThreads - 1.0);
                 }
             }
             
             int paramconv = 0;
+            std::cout << ".";
+            std::cout.flush();
             for (int param = 0; param < numParams; ++param) {
                 if (varavg[param] < criteria) ++paramconv;
             }
             if (paramconv == numParams) converged = true;
             
+            std::cout << ".\r";
+            std::cout.flush();
             ++loop;
         }
         
+        std::cout << "      Calculating best fitting values of " << numParams << " parameters..." << std::endl;
         std::vector<double> finalParams(numParams);
         std::vector<double> finalSigmas(numParams);
         long int totalDraws = 0;
         for (int i = 0; i < numThreads; ++i) {
             totalDraws += draws[i];
             for (int param = 0; param < numParams; ++param) {
-                finalParams[param] += averages[i][param]/numParams;
-                finalSigmas[param] += stdevs[i][param]/(numParams*(draws[i] - 1.0));
+                finalParams[param] += averages[i][param]/numThreads;
+                finalSigmas[param] += stdevs[i][param]/(numThreads*(draws[i] - 1.0));
             }
         }
+        std::cout << "      totalDraws = " << totalDraws << std::endl;
         
+//         for (int param = 0; param < numParams; ++param) {
+//             std::cout << "      " << paramNames[param] << " = " << finalParams[param];
+//             std::cout << " +/- " << sqrt(finalSigmas[param]) << std::endl;
+//         }
+        
+        std::cout << "      Calculating parameter covariance for " << numParams << " parameters..." << std::endl;
         std::vector<double> covariance(numParams*numParams);
         for (int i = 0; i < numParams; ++i) {
             for (int j = i; j < numParams; ++j) {
                 for (int tid = 0; tid < numThreads; ++tid) {
-                    for (int draw = 0; draw < draws[tid]; ++draw) {
+                    int threadDraw = draws[tid]-1.0;
+                    for (long int draw = 0; draw < threadDraw; ++draw) {
                         covariance[j+i*numParams] += ((reals[tid][draw][i]-finalParams[i])*(reals[tid][draw][j]-finalParams[j]))/(totalDraws - 1.0);
                     }
                 }
             }
         }
         
+        std::cout << "      Calculating best fitting chi^2..." << std::endl;
         std::vector<double> model(numVals);
-        ModelVals(&model[0], finalParams, numParams, numVals, xvals);
+        ModelVals(model, finalParams, numParams, numVals, xvals);
         double chisq = chisqCalc(data, model, PsiVec, numVals);
         
+        std::cout << "      Outputting summary..." << std::endl;
         sout << chisq << " ";
         for (int param = 0; param < numParams; ++param) {
             sout << finalParams[param] << " " << sqrt(finalSigmas[param]);
             if (param < numParams-1) sout << " ";
         }
-        sout << "\n";
+        sout << std::endl;
         
+        std::cout << "      Outputting basic information for the " << numParams << " parameters..." << std::endl;
         fout.open(outfile.c_str(), std::ios::out);
-        fout.precision(15);
+        //fout.precision(15);
         fout << "Best fitting chi^2 = " << chisq << "\n";
         for (int i = 0; i < numParams; ++i) {
-            fout << paramNames[i] << " " << finalParams[i] << " " << sqrt(finalSigmas[i]);
+            std::cout << "Parameter " << i << std::endl;
+            fout << p.gets("paramNames", i) << " ";
+            fout.flush();
+            fout << finalParams[i] << " ";
+            fout.flush();
+            fout << sqrt(finalSigmas[i]);
+            fout.flush();
             fout << " " << sqrt(covariance[i+numParams*i]) << "\n";
         }
         fout.close();
         
         if (p.getb("covarianceOut")) {
+            std::cout << "      Outputting parameter covariance..." << std::endl;
             std::string covfile = filename(p.gets("covBase"), p.geti("digits"), file, p.gets("ext"));
             fout.open(covfile.c_str(), std::ios::out);
             fout.precision(15);
@@ -240,12 +289,12 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < numParams; ++i) {
                 if (i > 0) fout.width(19);
                 else fout.width(20);
-                fout << paramNames[i];
+                fout << p.gets("paramNames", i);
             }
             fout << "\n";
             for (int i = 0; i < numParams; ++i) {
                 fout.width(15);
-                fout << paramNames[i];
+                fout << p.gets("paramNames", i);
                 fout.width(i*20);
                 fout << "";
                 for (int j = i; j < numParams; ++j) {
@@ -254,14 +303,16 @@ int main(int argc, char *argv[]) {
                 }
                 fout << "\n";
             }
+            fout.close();
         }
         
         if (p.getb("realsOut")) {
+            std::cout << "      Outputting all realizations..." << std::endl;
             std::string realsfile = filename(p.gets("realsBase"), p.geti("digits"), file, p.gets("ext"));
             fout.open(realsfile.c_str(), std::ios::out);
             fout.precision(15);
             for (int tid = 0; tid < numThreads; ++tid) {
-                for (int draw = 0; draw < draws[tid]; ++draw) {
+                for (int draw = 0; draw < draws[tid]-1; ++draw) {
                     for (int param = 0; param < numParams; ++param) {
                         fout << reals[tid][draw][param];
                         if (param < numParams-1) fout << " ";
@@ -269,6 +320,7 @@ int main(int argc, char *argv[]) {
                     fout << "\n";
                 }
             }
+            fout.close();
         }
         
     }
