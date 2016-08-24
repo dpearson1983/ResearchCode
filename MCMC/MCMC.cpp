@@ -13,7 +13,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_permutation.h>
-#include "model.h"
+#include <model.h>
 
 std::string filename(std::string filebase, int digits, int filenum, std::string fileext) {
     std::stringstream file;
@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
     
     std::ifstream fin;
     std::ofstream fout;
+    std::ofstream sout;
     
     gsl_matrix *cov = gsl_matrix_alloc(p.geti("numVals"), p.geti("numVals"));
     gsl_matrix *Psi = gsl_matrix_alloc(p.geti("numVals"), p.gets("numVals"));
@@ -52,6 +53,7 @@ int main(int argc, char *argv[]) {
     gsl_matrix_free(cov);
     gsl_matrix_free(Psi);
     
+    sout.open(p.gets("summaryFile").c_str(), std::ios::out);
     for (int file = p.geti("startNum"); file < p.geti("numFiles")+p.geti("startNum"); ++file) {
         std::string infile = filename(p.gets("inBase"), p.geti("digits"), file, p.gets("ext"));
         std::string outfile = filename(p.gets("outBase"), p.geti("digits"), file, p.gets("ext"));
@@ -213,6 +215,13 @@ int main(int argc, char *argv[]) {
         ModelVals(&model[0], finalParams, numParams, numVals, xvals);
         double chisq = chisqCalc(data, model, PsiVec, numVals);
         
+        sout << chisq << " ";
+        for (int param = 0; param < numParams; ++param) {
+            sout << finalParams[param] << " " << sqrt(finalSigmas[param]);
+            if (param < numParams-1) sout << " ";
+        }
+        sout << "\n";
+        
         fout.open(outfile.c_str(), std::ios::out);
         fout.precision(15);
         fout << "Best fitting chi^2 = " << chisq << "\n";
@@ -226,15 +235,40 @@ int main(int argc, char *argv[]) {
             std::string covfile = filename(p.gets("covBase"), p.geti("digits"), file, p.gets("ext"));
             fout.open(covfile.c_str(), std::ios::out);
             fout.precision(15);
+            fout.width(15);
+            fout << "";
             for (int i = 0; i < numParams; ++i) {
+                if (i > 0) fout.width(19);
+                else fout.width(20);
+                fout << paramNames[i];
+            }
+            fout << "\n";
+            for (int i = 0; i < numParams; ++i) {
+                fout.width(15);
+                fout << paramNames[i];
+                fout.width(i*20);
+                fout << "";
                 for (int j = i; j < numParams; ++j) {
-                    
+                    fout.width(20);
+                    fout << covariance[j+numParams*i];
                 }
+                fout << "\n";
             }
         }
         
         if (p.getb("realsOut")) {
             std::string realsfile = filename(p.gets("realsBase"), p.geti("digits"), file, p.gets("ext"));
+            fout.open(realsfile.c_str(), std::ios::out);
+            fout.precision(15);
+            for (int tid = 0; tid < numThreads; ++tid) {
+                for (int draw = 0; draw < draws[tid]; ++draw) {
+                    for (int param = 0; param < numParams; ++param) {
+                        fout << reals[tid][draw][param];
+                        if (param < numParams-1) fout << " ";
+                    }
+                    fout << "\n";
+                }
+            }
         }
         
     }
