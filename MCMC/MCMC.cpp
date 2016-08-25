@@ -14,6 +14,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_permutation.h>
+#include <sys/sysinfo.h>
 #include <model.h>
 
 std::string filename(std::string filebase, int digits, int filenum, std::string fileext) {
@@ -124,11 +125,15 @@ int main(int argc, char *argv[]) {
         std::cout << "      MCMC running chains until convergence..." << std::endl;
         omp_set_num_threads(numThreads);
         bool converged = false;
+        bool memMaxed = false;
         double criteria = p.getd("convergenceCriteria");
         int loop = 0;
-        while (!converged) {
-            std::cout << "         .";
-            std::cout.flush();
+        struct sysinfo systemInfo;
+        sysinfo(&systemInfo);
+        unsigned long free_ram = systemInfo.freeram;
+        double maxMem = free_ram*0.2;
+        if (p.checkParam("percentRam")) maxMem = free_ram*p.getd("percentRam");
+        while (!converged && !memMaxed) {
             #pragma omp parallel
             {
                 std::random_device seeder;
@@ -187,8 +192,6 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
-            std::cout << ".";
-            std::cout.flush();
             // Test for convergence here
             std::vector<double> avgavg(numParams);
             std::vector<double> varavg(numParams);
@@ -198,8 +201,6 @@ int main(int argc, char *argv[]) {
                 }
             }
             
-            std::cout << ".";
-            std::cout.flush();
             for (int i = 0; i < numThreads; ++i) {
                 for (int param = 0; param < numParams; ++param) {
                     varavg[param] += ((averages[i][param]-avgavg[param])*(averages[i][param]-avgavg[param]))/(numThreads - 1.0);
@@ -207,18 +208,16 @@ int main(int argc, char *argv[]) {
             }
             
             int paramconv = 0;
-            std::cout << ".";
-            std::cout.flush();
             for (int param = 0; param < numParams; ++param) {
                 if (varavg[param] < criteria) ++paramconv;
             }
             if (paramconv == numParams) converged = true;
             
-            std::cout << ".\r";
-            std::cout.flush();
             ++loop;
+            double usedMem = loop*numDraws*numThreads*numParams*sizeof(double);
+            if (usedMem > maxMem) memMaxed = true;
         }
-        
+        if (memMaxed) std::cout << "      Chains did not converge." << std::endl;
         std::cout << "      Calculating best fitting values of " << numParams << " parameters..." << std::endl;
         std::vector<double> finalParams(numParams);
         std::vector<double> finalSigmas(numParams);
@@ -231,11 +230,6 @@ int main(int argc, char *argv[]) {
             }
         }
         std::cout << "      totalDraws = " << totalDraws << std::endl;
-        
-//         for (int param = 0; param < numParams; ++param) {
-//             std::cout << "      " << paramNames[param] << " = " << finalParams[param];
-//             std::cout << " +/- " << sqrt(finalSigmas[param]) << std::endl;
-//         }
         
         std::cout << "      Calculating parameter covariance for " << numParams << " parameters..." << std::endl;
         std::vector<double> covariance(numParams*numParams);
@@ -261,14 +255,15 @@ int main(int argc, char *argv[]) {
             sout << finalParams[param] << " " << sqrt(finalSigmas[param]);
             if (param < numParams-1) sout << " ";
         }
+        if (memMaxed) sout << " WARNING: Chains failed to converge.\n";
         sout << std::endl;
         
         std::cout << "      Outputting basic information for the " << numParams << " parameters..." << std::endl;
         fout.open(outfile.c_str(), std::ios::out);
-        //fout.precision(15);
+        fout.precision(15);
+        if (memMaxed) fout << "Chains failed to converge.\n";
         fout << "Best fitting chi^2 = " << chisq << "\n";
         for (int i = 0; i < numParams; ++i) {
-            std::cout << "Parameter " << i << std::endl;
             fout << p.gets("paramNames", i) << " ";
             fout.flush();
             fout << finalParams[i] << " ";
@@ -323,6 +318,25 @@ int main(int argc, char *argv[]) {
             fout.close();
         }
         
+        if (!p.getb("realsOut") && memMaxed) {
+            std::cout << "      Outputting all realizations..." << std::endl;
+            std::string realsfile;
+            std::stringstream ss;
+            ss << p.gets("inBase") << "reals_" << std::setw(p.geti("digits")) << std::setfill('0') << file << p.gets("ext");
+            realsfile = ss.str();
+            fout.open(realsfile.c_str(), std::ios::out);
+            fout.precision(15);
+            for (int tid = 0; tid < numThreads; ++tid) {
+                for (int draw = 0; draw < draws[tid]-1; ++draw) {
+                    for (int param = 0; param < numParams; ++param) {
+                        fout << reals[tid][draw][param];
+                        if (param < numParams-1) fout << " ";
+                    }
+                    fout << "\n";
+                }
+            }
+            fout.close();
+        }
     }
     
     return 0;
