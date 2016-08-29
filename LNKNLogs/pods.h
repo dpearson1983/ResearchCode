@@ -1,8 +1,10 @@
 #ifndef _PODS_H_
 #define _PODS_H_
 
-struct string2{
-    std::string x, y;
+const long double pi = acos(-1);
+
+struct kinfo{
+    double min, max, width;
 };
 
 struct double2{
@@ -11,14 +13,6 @@ struct double2{
 
 struct double3{
     double x, y, z;
-};
-
-struct double4{
-    double x, y, z, w;
-};
-
-struct int2{
-    int x, y;
 };
 
 struct int3{
@@ -35,6 +29,19 @@ struct int8{
 
 struct galaxy{
     double x, y, z, nbar, bias;
+};
+
+struct galaxies{
+    double x, y, z, vx, vy, vz;
+};
+
+struct powerspec{
+    double M, Q, QSN, H, HSN;
+    int N;
+};
+
+struct Pk{
+    double k, P;
 };
 
 #endif

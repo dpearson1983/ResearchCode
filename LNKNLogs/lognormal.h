@@ -1,29 +1,22 @@
 #ifndef _LOGNORMAL_H_
 #define _LOGNORMAL_H_
 
-void fftfreq1d(double *k, int N, double L);
+double gridCorCIC(double kx, double ky, double kz, double3 binSize);
 
-void fftfreq2d(double2 *k, int2 N, double2 L);
+double cloudInCell(double *data, double3 r, int3 N, double3 L, double3 dL);
 
-void fftfreq3d(double3 *k, int3 N, double3 L);
+void Gendk(int3 N, double3 L, double b, double *kval, double *Pk, int numKVals, 
+           fftw_complex *dk3d);
 
-void Pk_CAMB(int3 N, double3 *vk, double *k_mag, double *P, int numKVals, double *Pk);
+void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difile, 
+           fftw_complex *dk3d, fftw_complex *vk3dx, fftw_complex *vk3dy, fftw_complex *vk3dz);
 
-void Genddk(int3 N, double3 L, double3 *vk, double b, double f, double *Pk,
-            fftw_complex *dk3d);
+void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, double variance,
+           double *dr3d, double *vr3dx, double *vr3dy, double *vr3dz, 
+           std::vector< double > b, double bias);
 
-void Genddk_2Tracer(int3 N, double3 L, double3 *vk, double2 b, double f, double *Pk,
-                    fftw_complex *dk3d1, fftw_complex *dk3d2);
-
-void Sampdk(int3 N, double3 *vk, fftw_complex *dk3di, fftw_complex *dk3d);
-
-void Sampdk_2Tracer(int3 N, double3 *vk, fftw_complex *dk3di, fftw_complex *dk3d1,
-                    fftw_complex *dk3d2, double *ratio);
-
-void Genddr(int3 N, double3 L, double nbar, std::string file, double variance,
-            fftw_real *dr3d);
-
-void Genddr_2Tracer(int3 N, double3 L, double2 nbar, string2 file, double2 variance,
-                    fftw_real *dr3d1, fftw_real *dr3d2);
+void Gendr_interp(int3 N, double3 L, double *nbar, int numTracers, std::string file,
+                  double variance, double *dr3d, double *vr3dx, double *vr3dy, double *vr3dz,
+                  std::vector< double > b, double bias);
 
 #endif
