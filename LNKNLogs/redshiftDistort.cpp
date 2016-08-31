@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
     
     std::ifstream fin;
     std::ofstream fout;
+    std::ofstream mout;
     
     parameters p;
     p.readParams(argv[1]);
@@ -35,11 +36,14 @@ int main(int argc, char *argv[]) {
                      +p.getd("Omega_L"))*p.getd("H_0");
     double a = 1.0/(1.0+p.getd("z"));
     
+    mout.open(p.gets("maxShiftFile").c_str(), std::ios::out);
     for (int mock = p.geti("startNum"); mock < p.geti("numMocks")+p.geti("startNum"); ++mock) {
         std::string infile = filename(p.gets("inBase"), p.geti("digits"), mock, p.gets("ext"));
         std::string outfile = filename(p.gets("outBase"), p.geti("digits"), mock, p.gets("ext"));
         
         std::cout << "Adding distortions to " << infile << "..." << std::endl;
+        
+        double maxShift = 0.0;
         
         fin.open(infile.c_str(), std::ios::in);
         fout.open(outfile.c_str(), std::ios::out);
@@ -49,13 +53,18 @@ int main(int argc, char *argv[]) {
             
             fin >> x >> y >> z >> vx >> vy >> vz >> b;
             x += vx/(Hz);
+            double shift = fabs(vx/(Hz));
             if (!fin.eof() && x >= 0 && x <= p.getd("Lx")) {
                 fout << x << " " << y << " " << z << " " << b << " " << p.getd("nbar") << "\n";
+                if (shift > maxShift) maxShift = shift;
             }
         }
         fin.close();
         fout.close();
+        
+        mout << maxShift << "\n";
     }
+    mout.close();
     
     return 0;
 }
