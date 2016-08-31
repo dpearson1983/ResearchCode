@@ -28,7 +28,7 @@ struct int8{
 };
 
 struct galaxy{
-    double x, y, z, nbar, bias;
+    double x, y, z, vx, vy, vz, bias;
 };
 
 struct galaxies{

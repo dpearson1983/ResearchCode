@@ -216,22 +216,18 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                 if (k_tot > 0) k_invsq = 1.0/(k_tot);
                 else k_invsq = 0.0;
                 
-                if ((i != 0 && i != N.x/2) || (j != 0 && j != N.y/2) || (k != 0 && l != N.z/2)) {
-                    dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
-                    dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
+                if ((i == 0 || i == N.x/2) && (j == 0 || j == N.y/2) && (k == 0 || k == N.z/2)){
+                    dk3d[index1][0] = distribution(generator)*sqrt(Power*dk3di[1]);
+                    dk3d[index1][1] = 0.0;
                     
-                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0];
-                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1];
+                    vk3dx[index1][1] = 0.0;
+                    vk3dy[index1][1] = 0.0;
+                    vk3dz[index1][1] = 0.0;
                     
-                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0];
-                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1];
-                    
-                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0];
-                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1];
-                    
-                    dk3d[index1][0] *= sqrt(dk3di[1]);
-                    dk3d[index1][1] *= sqrt(dk3di[1]);
-                } else if ((k == 0 || k == N.z/2) && ((i != 0 && i!= N.x/y) || (j != 0 && j != N.y/2))) {
+                    vk3dx[index1][0] = 0.0;
+                    vk3dy[index1][0] = 0.0;
+                    vk3dz[index1][0] = 0.0;
+                } else if (k == 0 || k == N.z/2) {
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
@@ -259,72 +255,21 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     dk3d[index2][0] = dk3d[index1][0];
                     dk3d[index2][1] = -dk3d[index1][1];
                 } else {
-                    dk3d[index1][0] = distribution(generator)*sqrt(Power*dk3di[1]);
-                    dk3d[index1][1] = 0.0;
+                    dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
+                    dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = 0.0;
-                    vk3dy[index1][1] = 0.0;
-                    vk3dz[index1][1] = 0.0;
+                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0];
+                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1];
                     
-                    vk3dx[index1][0] = 0.0;
-                    vk3dy[index1][0] = 0.0;
-                    vk3dz[index1][0] = 0.0;
+                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0];
+                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1];
+                    
+                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0];
+                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1];
+                    
+                    dk3d[index1][0] *= sqrt(dk3di[1]);
+                    dk3d[index1][1] *= sqrt(dk3di[1]);
                 }
-                
-//                 if ((i == 0 || i == N.x/2) && (j == 0 || j == N.y/2) && (k == 0 || k == N.z/2)){
-//                     dk3d[index1][0] = distribution(generator)*sqrt(Power*dk3di[1]);
-//                     dk3d[index1][1] = 0.0;
-//                     
-//                     vk3dx[index1][1] = 0.0;
-//                     vk3dy[index1][1] = 0.0;
-//                     vk3dz[index1][1] = 0.0;
-//                     
-//                     vk3dx[index1][0] = 0.0;
-//                     vk3dy[index1][0] = 0.0;
-//                     vk3dz[index1][0] = 0.0;
-//                 } else if (k == 0 || k == N.z/2) {
-//                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
-//                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
-//                     
-//                     vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0];
-//                     vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1];
-//                     
-//                     vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0];
-//                     vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1];
-//                     
-//                     vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0];
-//                     vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1];
-//                     
-//                     vk3dx[index2][1] = -vk3dx[index1][1];
-//                     vk3dx[index2][0] = vk3dx[index1][0];
-//                     
-//                     vk3dy[index2][1] = -vk3dy[index1][1];
-//                     vk3dy[index2][0] = vk3dy[index1][0];
-//                     
-//                     vk3dz[index2][1] = -vk3dz[index1][1];
-//                     vk3dz[index2][0] = vk3dz[index1][0];
-//                     
-//                     dk3d[index1][0] *= sqrt(dk3di[1]);
-//                     dk3d[index1][1] *= sqrt(dk3di[1]);
-//                     
-//                     dk3d[index2][0] = dk3d[index1][0];
-//                     dk3d[index2][1] = -dk3d[index1][1];
-//                 } else {
-//                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
-//                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
-//                     
-//                     vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0];
-//                     vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1];
-//                     
-//                     vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0];
-//                     vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1];
-//                     
-//                     vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0];
-//                     vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1];
-//                     
-//                     dk3d[index1][0] *= sqrt(dk3di[1]);
-//                     dk3d[index1][1] *= sqrt(dk3di[1]);
-//                 }
             }
         }
     }
@@ -348,8 +293,9 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
         n[i] = nbar[i]*dL.x*dL.y*dL.z;
     }
     
-    fout.open(file.c_str(),std::ios::out); // Open output file
-    fout.precision(15); // Set the number of digits to output
+    std::vector<galaxy> gals;
+    fout.open(file.c_str(),std::ios::out|std::ios::binary); // Open output file
+    //fout.precision(15); // Set the number of digits to output
     
     // Loop through all the grid points, assign galaxies uniform random positions within
     // each cell.
@@ -377,15 +323,19 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
                                      ymin + pos(generator)*dL.y,
                                      zmin + pos(generator)*dL.z};
                         double3 v = cloudInCell3(vr3dx, vr3dy, vr3dz, r, N, L, dL);
+                        galaxy temp = {r.x, r.y, r.z, v.x, v.y, v.z, b[tracer]};
                         
-                        fout << r.x << " " << r.y << " " << r.z << " " 
-                             << v.x << " " << v.y << " " << v.z << " " 
-                             << b[tracer] << "\n";
+                        gals.push_back(temp);
+                        
+//                         fout << r.x << " " << r.y << " " << r.z << " " 
+//                              << v.x << " " << v.y << " " << v.z << " " 
+//                              << b[tracer] << "\n";
                     }
                 }
             }
         }
     }
+    fout.write((char *) &gals[0], gals.size()*sizeof(galaxy));
     fout.close(); // Close file
     std::cout << "    Maximum Density = " << maxden << "\n";
 }
