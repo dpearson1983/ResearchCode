@@ -337,6 +337,7 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
     }
     fout.write((char *) &gals[0], gals.size()*sizeof(galaxy));
     fout.close(); // Close file
+    delete[] n;
     std::cout << "    Maximum Density = " << maxden << "\n";
 }
 

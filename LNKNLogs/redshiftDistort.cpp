@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
     if (argc == 1) {
         std::cout << "ERROR: Expected parameter file to be passed with program execution.\n";
         std::cout << "    Usage - " << argv[0] << " ParameterFileName.params\n";
-        std::cout << "    ParameterFileName.params can have vitually any extension so long\n";
+        std::cout << "    ParameterFileName.params can have virtually any extension so long\n";
         std::cout << "    the file is a plain text file. Please rerun the program making\n";
         std::cout << "    sure to pass a parameter file name at runtime.";
         
