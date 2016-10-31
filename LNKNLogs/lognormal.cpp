@@ -208,16 +208,16 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                 double k_tot = kx*kx + ky*ky + kz*kz;
                 //double grid_cor = gridCorCIC(kx, ky, kz, dr);
                 
-                fftw_complex dk3di;
-                fin.read((char *) &dk3di, sizeof(fftw_complex));
-                double Power = dk3di[0];
+                double Power;
+                fin.read((char *) &Power, sizeof(double));
+//                 double Power = dk3di[0];
                 
                 double k_invsq;
                 if (k_tot > 0) k_invsq = 1.0/(k_tot);
                 else k_invsq = 0.0;
                 
                 if ((i == 0 || i == N.x/2) && (j == 0 || j == N.y/2) && (k == 0 || k == N.z/2)){
-                    dk3d[index1][0] = distribution(generator)*sqrt(Power*dk3di[1]);
+                    dk3d[index1][0] = distribution(generator)*sqrt(Power);
                     dk3d[index1][1] = 0.0;
                     
                     vk3dx[index1][1] = 0.0;
@@ -240,17 +240,14 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0]/b;
                     vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1]/b;
                     
-                    vk3dx[index2][1] = -vk3dx[index1][1]/b;
-                    vk3dx[index2][0] = vk3dx[index1][0]/b;
+                    vk3dx[index2][1] = -vk3dx[index1][1];
+                    vk3dx[index2][0] = vk3dx[index1][0];
                     
-                    vk3dy[index2][1] = -vk3dy[index1][1]/b;
-                    vk3dy[index2][0] = vk3dy[index1][0]/b;
+                    vk3dy[index2][1] = -vk3dy[index1][1];
+                    vk3dy[index2][0] = vk3dy[index1][0];
                     
-                    vk3dz[index2][1] = -vk3dz[index1][1]/b;
-                    vk3dz[index2][0] = vk3dz[index1][0]/b;
-                    
-                    dk3d[index1][0] *= sqrt(dk3di[1]);
-                    dk3d[index1][1] *= sqrt(dk3di[1]);
+                    vk3dz[index2][1] = -vk3dz[index1][1];
+                    vk3dz[index2][0] = vk3dz[index1][0];
                     
                     dk3d[index2][0] = dk3d[index1][0];
                     dk3d[index2][1] = -dk3d[index1][1];
@@ -266,9 +263,6 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     
                     vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0]/b;
                     vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1]/b;
-                    
-                    dk3d[index1][0] *= sqrt(dk3di[1]);
-                    dk3d[index1][1] *= sqrt(dk3di[1]);
                 }
             }
         }
@@ -288,7 +282,7 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
     
     double maxden = 0.0;
     double3 dL = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
-    double *n = new double[numTracers];
+    std::vector<double> n(numTracers);
     for (int i = 0; i < numTracers; ++i) {
         n[i] = nbar[i]*dL.x*dL.y*dL.z;
     }
@@ -337,7 +331,6 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
     }
     fout.write((char *) &gals[0], gals.size()*sizeof(galaxy));
     fout.close(); // Close file
-    delete[] n;
     std::cout << "    Maximum Density = " << maxden << "\n";
 }
 
