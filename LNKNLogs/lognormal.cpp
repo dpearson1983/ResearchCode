@@ -231,23 +231,23 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0];
-                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1];
+                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0]/b;
+                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1]/b;
                     
-                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0];
-                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1];
+                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0]/b;
+                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1]/b;
                     
-                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0];
-                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1];
+                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0]/b;
+                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1]/b;
                     
-                    vk3dx[index2][1] = -vk3dx[index1][1];
-                    vk3dx[index2][0] = vk3dx[index1][0];
+                    vk3dx[index2][1] = -vk3dx[index1][1]/b;
+                    vk3dx[index2][0] = vk3dx[index1][0]/b;
                     
-                    vk3dy[index2][1] = -vk3dy[index1][1];
-                    vk3dy[index2][0] = vk3dy[index1][0];
+                    vk3dy[index2][1] = -vk3dy[index1][1]/b;
+                    vk3dy[index2][0] = vk3dy[index1][0]/b;
                     
-                    vk3dz[index2][1] = -vk3dz[index1][1];
-                    vk3dz[index2][0] = vk3dz[index1][0];
+                    vk3dz[index2][1] = -vk3dz[index1][1]/b;
+                    vk3dz[index2][0] = vk3dz[index1][0]/b;
                     
                     dk3d[index1][0] *= sqrt(dk3di[1]);
                     dk3d[index1][1] *= sqrt(dk3di[1]);
@@ -258,14 +258,14 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0];
-                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1];
+                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0]/b;
+                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1]/b;
                     
-                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0];
-                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1];
+                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0]/b;
+                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1]/b;
                     
-                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0];
-                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1];
+                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0]/b;
+                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1]/b;
                     
                     dk3d[index1][0] *= sqrt(dk3di[1]);
                     dk3d[index1][1] *= sqrt(dk3di[1]);

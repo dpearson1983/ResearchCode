@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
     
     double fileioTime = omp_get_wtime();
     fout.open(p.dk3difile.c_str(), std::ios::out|std::ios::binary);
-    fout.write((char *) dk3dm, N_im*sizeof(fftw_complex));
+    fout.write((char *) dk3di, N_im*sizeof(fftw_complex));
     fout.close();
     std::cout << "    Time to write binary file: " << omp_get_wtime()-fileioTime << " s\n";
     
