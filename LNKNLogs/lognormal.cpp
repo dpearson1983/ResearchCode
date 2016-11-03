@@ -128,6 +128,15 @@ double3 cloudInCell3(double *vx, double *vy, double *vz, double3 r, int3 N, doub
     return result;
 }
 
+void fftfreq(double *kvec, int N, double L) {
+    double dk = (2.0*pi)/L;
+    
+    for (int i = 0; i <= N/2; ++i)
+        kvec[i] = i*dk;
+    for (int i = N/2 + 1; i < N; ++i)
+        kvec[i] = (i - N)*dk;
+}
+
 void Gendk(int3 N, double3 L, double b, double *kval, double *Pk, int numKVals, 
            fftw_complex *dk3d) {
     gsl_spline *Power = gsl_spline_alloc(gsl_interp_cspline, numKVals);
@@ -135,24 +144,22 @@ void Gendk(int3 N, double3 L, double b, double *kval, double *Pk, int numKVals,
     
     gsl_spline_init(Power, kval, Pk, numKVals);
     
-    double3 dk;
-    dk.x = (2.0*pi)/L.x;
-    dk.y = (2.0*pi)/L.y;
-    dk.z = (2.0*pi)/L.z;
+    double *kx = new double[N.x];
+    double *ky = new double[N.y];
+    double *kz = new double[N.z];
+    fftfreq(kx, N.x, L.x);
+    fftfreq(ky, N.y, L.y);
+    fftfreq(kz, N.z, L.z);
     
     for (int i = 0; i < N.x; ++i) {
-        double kx = double(i - ((i - 1)/(N.x/2))*N.x)*dk.x;
         
         for (int j = 0; j < N.y; ++j) {
-            double ky = double(j - ((j - 1)/(N.y/2))*N.y)*dk.y;
             
             for (int k = 0; k <= N.z/2; ++k) {
-                double kz = k*dk.z;
                 
                 int index = k + (N.z/2 + 1)*(j + N.y*i);
                 
-                double k_tot = sqrt(kx*kx+ky*ky+kz*kz);
-                double mu = kx/k_tot;
+                double k_tot = sqrt(kx[i]*kx[i]+ky[j]*ky[j]+kz[k]*kz[k]);
                 
                 if (k_tot != 0) {
                     double P = b*b*gsl_spline_eval(Power, k_tot, acc);
@@ -168,6 +175,10 @@ void Gendk(int3 N, double3 L, double b, double *kval, double *Pk, int numKVals,
         }
     }
     
+    delete[] kx;
+    delete[] ky;
+    delete[] kz;
+    
     gsl_spline_free(Power);
     gsl_interp_accel_free(acc);
 }
@@ -181,10 +192,12 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
     
     std::ifstream fin;
     
-    double3 dk;
-    dk.x = 2.0*pi/L.x;
-    dk.y = 2.0*pi/L.y;
-    dk.z = 2.0*pi/L.z;
+    double *kx = new double[N.x];
+    double *ky = new double[N.y];
+    double *kz = new double[N.z];
+    fftfreq(kx, N.x, L.x);
+    fftfreq(ky, N.y, L.y);
+    fftfreq(kz, N.z, L.z);
     
     double3 dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
     
@@ -192,20 +205,17 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
     
     fin.open(dk3difile.c_str(), std::ios::in|std::ios::binary);
     for (int i = 0; i < N.x; ++i) {
-        double kx = (i - ((i - 1)/(N.x/2))*N.x)*dk.x;
         int i2 = (2*N.x - i) % N.x;
         
         for (int j = 0; j < N.y; ++j) {
-            double ky = (j - ((j - 1)/(N.y/2))*N.y)*dk.y;
             int j2 = (2*N.y - j) % N.y;
             
             for (int k = 0; k <= N.z/2; ++k) {
-                double kz = k*dk.z;
                 
                 int index1 = k + (N.z/2 + 1)*(j + N.y*i);
                 int index2 = k + (N.z/2 + 1)*(j2 + N.y*i2);
                 
-                double k_tot = kx*kx + ky*ky + kz*kz;
+                double k_tot = kx[i]*kx[i] + ky[j]*ky[j] + kz[k]*kz[k];
                 //double grid_cor = gridCorCIC(kx, ky, kz, dr);
                 
                 double Power;
@@ -217,6 +227,7 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                 else k_invsq = 0.0;
                 
                 if ((i == 0 || i == N.x/2) && (j == 0 || j == N.y/2) && (k == 0 || k == N.z/2)){
+                    //std::normal_distribution<double> distribution(0.0, sqrt(Power));
                     dk3d[index1][0] = distribution(generator)*sqrt(Power);
                     dk3d[index1][1] = 0.0;
                     
@@ -228,17 +239,18 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     vk3dy[index1][0] = 0.0;
                     vk3dz[index1][0] = 0.0;
                 } else if (k == 0 || k == N.z/2) {
+                    //std::normal_distribution<double> distribution(0.0, sqrt(Power/2.0));
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0]/b;
-                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1]/b;
+                    vk3dx[index1][1] = k_invsq*kx[i]*dk3d[index1][0];
+                    vk3dx[index1][0] = -k_invsq*kx[i]*dk3d[index1][1];
                     
-                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0]/b;
-                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1]/b;
+                    vk3dy[index1][1] = k_invsq*ky[j]*dk3d[index1][0];
+                    vk3dy[index1][0] = -k_invsq*ky[j]*dk3d[index1][1];
                     
-                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0]/b;
-                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1]/b;
+                    vk3dz[index1][1] = k_invsq*kz[k]*dk3d[index1][0];
+                    vk3dz[index1][0] = -k_invsq*kz[k]*dk3d[index1][1];
                     
                     vk3dx[index2][1] = -vk3dx[index1][1];
                     vk3dx[index2][0] = vk3dx[index1][0];
@@ -252,22 +264,27 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     dk3d[index2][0] = dk3d[index1][0];
                     dk3d[index2][1] = -dk3d[index1][1];
                 } else {
+                    //std::normal_distribution<double> distribution(0.0, sqrt(Power/2.0));
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = k_invsq*kx*dk3d[index1][0]/b;
-                    vk3dx[index1][0] = -k_invsq*kx*dk3d[index1][1]/b;
+                    vk3dx[index1][1] = k_invsq*kx[i]*dk3d[index1][0];
+                    vk3dx[index1][0] = -k_invsq*kx[i]*dk3d[index1][1];
                     
-                    vk3dy[index1][1] = k_invsq*ky*dk3d[index1][0]/b;
-                    vk3dy[index1][0] = -k_invsq*ky*dk3d[index1][1]/b;
+                    vk3dy[index1][1] = k_invsq*ky[j]*dk3d[index1][0];
+                    vk3dy[index1][0] = -k_invsq*ky[j]*dk3d[index1][1];
                     
-                    vk3dz[index1][1] = k_invsq*kz*dk3d[index1][0]/b;
-                    vk3dz[index1][0] = -k_invsq*kz*dk3d[index1][1]/b;
+                    vk3dz[index1][1] = k_invsq*kz[k]*dk3d[index1][0];
+                    vk3dz[index1][0] = -k_invsq*kz[k]*dk3d[index1][1];
                 }
             }
         }
     }
     fin.close();
+    
+    delete[] kx;
+    delete[] ky;
+    delete[] kz;
 }
 
 void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, double variance,

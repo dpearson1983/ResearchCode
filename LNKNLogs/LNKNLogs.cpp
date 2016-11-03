@@ -163,6 +163,7 @@ int main(int argc, char *argv[]) {
         if (p.b[i] > bias) bias = p.b[i];
     }
     std::cout << "Highest Bias: " << bias << "\n";
+    double beta = p.f/bias;
     
     std::cout << "Preparing to generate " << p.numMocks << " mock catalogs...\n";
     
@@ -307,9 +308,9 @@ int main(int argc, char *argv[]) {
         std::cout << p.h << ", " << p.f << "\n";
 //#pragma omp parallel for schedule(auto)
         for (int i = 0; i < N_tot; ++i) {
-            vr3dx[i] *= 100.0*p.h*p.f*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
-            vr3dy[i] *= 100.0*p.h*p.f*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
-            vr3dz[i] *= 100.0*p.h*p.f*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
+            vr3dx[i] *= 100.0*p.h*beta*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
+            vr3dy[i] *= 100.0*p.h*beta*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
+            vr3dz[i] *= 100.0*p.h*beta*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
         }
         
         std::cout << "    Transforming dk3d...\n";
