@@ -37,6 +37,8 @@ class parameters{
         std::string gets(std::string key, int element = 0);
         
         bool checkParam(std::string key);
+        
+        parameters(char *file);
 };
 
 #endif

@@ -30,6 +30,10 @@
 #include <map>
 #include "harppi.h"
 
+parameters::parameters(char *file) {
+    parameters::readParams(file);
+}
+
 bool parameters::assignParams(std::string type, std::string key, std::string val) {
     if (type == "string") {
         parameters::strings.insert(std::pair<std::string, std::string>(key,val));
