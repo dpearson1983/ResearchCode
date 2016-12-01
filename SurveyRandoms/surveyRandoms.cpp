@@ -13,6 +13,10 @@
 #include <pfunk.h>
 #include <omp.h>
 
+struct min_max{
+    double min, max;
+};
+
 int main(int argc, char *argv[]) {
     parameters p(argv[1]);
     p.print();
@@ -20,119 +24,127 @@ int main(int argc, char *argv[]) {
     std::ifstream fin;
     std::ofstream fout;
     
-    long nside = p.geti("nside");
-    long npix = nside2npix(nside);
-    std::cout << "npix = " << npix << std::endl;
-    std::cout << "Initializing mask..." << std::endl;
-    int *mask = new int[npix];
-#pragma omp parallel for
-    for (int i = 0; i < npix; ++i) {
-        mask[i] = 0;
-    }
-    
-    std::cout << "Reading in full mock and creating mask..." << std::endl;
-    fin.open(p.gets("fullMock").c_str(), std::ios::in);
-    while (!fin.eof()) {
-        double ra, dec, red, mass;
-        fin >> ra >> dec >> red >> mass;
-        
-        ra *= pi/180.0;
-        dec -= 90.0;
-        dec = fabs(dec)*pi/180.0;
-        
-        long pix;
-        ang2pix_nest(nside, dec, ra, &pix);
-        mask[pix] = 1;
-    }
-    fin.close();
-    
-    std::cout << "Reading in number density profile..." << std::endl;
-    std::vector<double> zin;
-    std::vector<double> nin;
-    fin.open(p.gets("nbarvszfile").c_str(), std::ios::in);
-    while (!fin.eof()) {
-        double z, n;
-        fin >> z >> n;
-        if (!fin.eof()) {
-            nin.push_back(n);
-            zin.push_back(z);
-        }
-    }
-    fin.close();
-    
-    int numZbins = nin.size();
     double timesRan = p.getd("timesRan");
-    double dz = zin[1] - zin[0];
     double red_min = p.getd("red_min");
     double red_max = p.getd("red_max");
     double Omega_M = p.getd("Omega_M");
     double Omega_L = p.getd("Omega_L");
     double sky_frac = p.getd("surveyArea")*pi/129600.0;
+    int numZBins = p.geti("numZBins");
+    double dz = (red_max - red_min)/p.getd("numZBins");
+    int numThreads = p.geti("numThreads");
     
-    std::cout << "Determining the number of randoms for each redshift bin..." << std::endl;
-    int *numGalvsz = new int[nin.size()];
-    int totalRans = 0;
+    long nside = p.geti("nside");
+    long npix = nside2npix(nside);
+    std::cout << "npix = " << npix << std::endl;
+    std::cout << "Initializing mask..." << std::endl;
+    int *mask = new int[npix];
+    double *nz = new double[p.geti("numZBins") + 2];
+    double *red = new double[p.geti("numZBins") + 2];
 #pragma omp parallel for
-    for (int i = 0; i < numZbins; ++i) {
-        gsl_integration_workspace *w = gsl_integration_workspace_alloc(10000000);
-        double red_low = red_min + i*dz;
-        double red_high = red_min + (i + 1.0)*dz;
-        double r_low = rz(red_low, Omega_M, Omega_L, w);
-        double r_high = rz(red_high, Omega_M, Omega_L, w);
-        double V = (4.0*pi*(r_high*r_high*r_high - r_low*r_low*r_low))/3.0;
-        numGalvsz[i] = V*sky_frac*nin[i]*timesRan;
-        totalRans += numGalvsz[i];
-        gsl_integration_workspace_free(w);
+    for (int i = 0; i < npix; ++i) {
+        mask[i] = 0;
     }
-//     std::string check;
+#pragma omp parallel for
+    for (int i = 0; i < numZBins; ++i) {
+        nz[i] = 0.0;
+    }
+    
+    int numMockGals = 0;
+    std::vector<std::vector<double>> masses;
+    masses.reserve(numZBins);
+    std::cout << "Reading in full mock and creating mask..." << std::endl;
+    fin.open(p.gets("fullMock").c_str(), std::ios::in);
+    while (!fin.eof()) {
+        double ra, dec, red, mass;
+        fin >> ra >> dec >> red >> mass;
+        if (red >= red_min && red <= red_max) {
+            ra *= pi/180.0;
+            dec -= 90.0;
+            dec = fabs(dec)*pi/180.0;
+            
+            long pix;
+            ang2pix_nest(nside, dec, ra, &pix);
+            mask[pix] = 1;
+            
+            int zbin = (red - red_min)/dz;
+            nz[zbin + 1]++;
+            numMockGals++;
+            masses[zbin].push_back(log10(mass));
+        }
+    }
+    fin.close();
+    
+    std::cout << "numMockGals = " << numMockGals << std::endl;
+    int numNeeded = timesRan*numMockGals;
+    
+    std::cout << "Setting up spline for redshift probability..." << std::endl;
+    nz[0] = 1.0/numMockGals;
+    nz[1] -= 1.0;
+    red[0] = red_min;
+    nz[numZBins + 1] = 1.0/numMockGals;
+    nz[numZBins] -= 1.0
+    red[numZBins + 1] = red_max;
+    for (int i = 1; i <= numZBins; ++i) {
+        nz[i] /= numMockGals;
+        red[i] = (i + 0.5)*dz;
+    }
+    
+    gsl_spline *n_of_z = gsl_spline_alloc(gsl_interp_cspline, numZBins + 2);
+    gsl_interp_accel *acc_n_of_z = gsl_interp_accel_alloc();
+    gsl_spline_init(n_of_z, red, nz, numZBins + 2);
+    
+    std::cout << "Setting up splines for halo mass probability..." << std::endl;
+    
+    std::vector<gsl_spline *> massSplines;
+    massSplines.reserve(numZBins);
+    for (int i = 0; i < numZBins; ++i) {
+        std::vector<int> 
+
     std::cout << "totalRans = " << totalRans << std::endl;
     std::cout << "file size = " << double(totalRans*sizeof(galaxy))/1073741824.0 << " GiB" << std::endl;
-//     std::cout << "Continue? (y or n): ";
-//     std::cin >> check;
-//     if (check == "n") {
-//         return 0;
-//     }
     
     std::random_device seeder;
     std::mt19937_64 gen(seeder());
     std::uniform_real_distribution<double> xdist(p.getd("x_min"), p.getd("x_max"));
     std::uniform_real_distribution<double> ydist(p.getd("y_min"), p.getd("y_max"));
     std::uniform_real_distribution<double> zdist(p.getd("z_min"), p.getd("z_max"));
+    std::uniform_real_distribution<double> keep(0.0, 1.0);
     
     std::vector<int> numGals(nin.size());
     long numRans = 0;
     bool moreRans = true;
+    int numDraws = p.geti("numDraws");
     gsl_integration_workspace *w = gsl_integration_workspace_alloc(10000000);
     std::cout << "Generating randoms..." << std::endl;
     fout.open(p.gets("ransFile").c_str(), std::ios::out|std::ios::binary);
     while (moreRans) {
-        galaxy ran;
-        ran.x = xdist(gen);
-        ran.y = ydist(gen);
-        ran.z = zdist(gen);
-        cartesian2equatorial(&ran, 1, Omega_M, Omega_L, w);
-        double phi = ran.ra*pi/180.0;
-        double theta = fabs(ran.dec - 90.0)*pi/180.0;
-        long pix;
-        ang2pix_nest(nside, theta, phi, &pix);
-        if (mask[pix] == 1 && ran.red <= red_max && ran.red >= red_min) {
-            int zbin = (ran.red - red_min)/dz;
-            if (numGals[zbin] < numGalvsz[zbin] && numRans < totalRans) {
-                fout.write((char *) &ran, sizeof(galaxy));
-                ++numGals[zbin];
-                ++numRans;
+        std::vector<std::vector<galaxyf>> threadRans;
+        #pragma omp parallel num_threads(numThreads) reduction(+:numRans)
+        {
+            int numAccepted = 0;
+            std::vector<galaxy> rans;
+            for (int i = 0; i < numDraws; ++i) {
+                galaxy ran;
+                ran.x = xdist(gen);
+                ran.y = ydist(gen);
+                ran.z = zdist(gen);
+                cartesian2equatorial(&ran, 1, Omega_M, Omega_L, w);
+                double phi = ran.ra*pi/180.0;
+                double theta = fabs(ran.dec - 90.0)*pi/180.0;
+                long pix;
+                ang2pix_nest(nside, theta, phi, &pix);
+                if (mask[pix] == 1 && ran.red >= red_min && ran.red <= red_max) {
+                    // Determine probability of keeping galaxy based on number density profile
+                    
+                }
             }
+            numRans += numAccepted;
         }
-        moreRans = false;
-        for (int i = 0; i < numZbins; ++i) {
-            if (numGals[i] != numGalvsz[i]) {
-                moreRans = true;
-                break;
-            }
-        }
-        if (numRans == totalRans) moreRans = false;
-        std::cout << numRans << "\r";
-        std::cout.flush();
+        for (int i = 0; i < numThreads; ++i)
+            fout.write((char *) &threadRans[i][0], threadRans[i].size()*sizeof(galaxyf));
+        
+        if (numRans >= numNeeded) moreRans = false;
     }
     fout.close();
     gsl_integration_workspace_free(w);
