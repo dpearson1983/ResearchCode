@@ -218,9 +218,9 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                 double k_tot = kx[i]*kx[i] + ky[j]*ky[j] + kz[k]*kz[k];
                 //double grid_cor = gridCorCIC(kx, ky, kz, dr);
                 
-                double Power;
-                fin.read((char *) &Power, sizeof(double));
-//                 double Power = dk3di[0];
+                fftw_complex dk3di;
+                fin.read((char *) &dk3di, sizeof(fftw_complex));
+                double Power = dk3di[0];
                 
                 double k_invsq;
                 if (k_tot > 0) k_invsq = 1.0/(k_tot);
@@ -243,14 +243,14 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = k_invsq*kx[i]*dk3d[index1][0];
-                    vk3dx[index1][0] = -k_invsq*kx[i]*dk3d[index1][1];
+                    vk3dx[index1][1] = k_invsq*kx[i]*dk3d[index1][0]*dk3di[1];
+                    vk3dx[index1][0] = -k_invsq*kx[i]*dk3d[index1][1]*dk3di[1];
                     
-                    vk3dy[index1][1] = k_invsq*ky[j]*dk3d[index1][0];
-                    vk3dy[index1][0] = -k_invsq*ky[j]*dk3d[index1][1];
+                    vk3dy[index1][1] = k_invsq*ky[j]*dk3d[index1][0]*dk3di[1];
+                    vk3dy[index1][0] = -k_invsq*ky[j]*dk3d[index1][1]*dk3di[1];
                     
-                    vk3dz[index1][1] = k_invsq*kz[k]*dk3d[index1][0];
-                    vk3dz[index1][0] = -k_invsq*kz[k]*dk3d[index1][1];
+                    vk3dz[index1][1] = k_invsq*kz[k]*dk3d[index1][0]*dk3di[1];
+                    vk3dz[index1][0] = -k_invsq*kz[k]*dk3d[index1][1]*dk3di[1];
                     
                     vk3dx[index2][1] = -vk3dx[index1][1];
                     vk3dx[index2][0] = vk3dx[index1][0];
@@ -268,14 +268,14 @@ void Smpdk(int3 N, double3 L, double b, double h, double f, std::string dk3difil
                     dk3d[index1][0] = distribution(generator)*sqrt(Power/2.0);
                     dk3d[index1][1] = distribution(generator)*sqrt(Power/2.0);
                     
-                    vk3dx[index1][1] = k_invsq*kx[i]*dk3d[index1][0];
-                    vk3dx[index1][0] = -k_invsq*kx[i]*dk3d[index1][1];
+                    vk3dx[index1][1] = k_invsq*kx[i]*dk3d[index1][0]*dk3di[1];
+                    vk3dx[index1][0] = -k_invsq*kx[i]*dk3d[index1][1]*dk3di[1];
                     
-                    vk3dy[index1][1] = k_invsq*ky[j]*dk3d[index1][0];
-                    vk3dy[index1][0] = -k_invsq*ky[j]*dk3d[index1][1];
+                    vk3dy[index1][1] = k_invsq*ky[j]*dk3d[index1][0]*dk3di[1];
+                    vk3dy[index1][0] = -k_invsq*ky[j]*dk3d[index1][1]*dk3di[1];
                     
-                    vk3dz[index1][1] = k_invsq*kz[k]*dk3d[index1][0];
-                    vk3dz[index1][0] = -k_invsq*kz[k]*dk3d[index1][1];
+                    vk3dz[index1][1] = k_invsq*kz[k]*dk3d[index1][0]*dk3di[1];
+                    vk3dz[index1][0] = -k_invsq*kz[k]*dk3d[index1][1]*dk3di[1];
                 }
             }
         }
@@ -304,7 +304,6 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
         n[i] = nbar[i]*dL.x*dL.y*dL.z;
     }
     
-    std::vector<galaxy> gals;
     fout.open(file.c_str(),std::ios::out|std::ios::binary); // Open output file
     //fout.precision(15); // Set the number of digits to output
     
@@ -312,6 +311,7 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
     // each cell.
     for (int i = 0; i < N.x; ++i) {
         double xmin = i*dL.x;
+        std::vector<galaxy> gals;
         for (int j = 0; j < N.y; ++j) {
             double ymin = j*dL.y;
             for (int k = 0; k < N.z; ++k) {
@@ -345,8 +345,9 @@ void Gendr(int3 N, double3 L, double *nbar, int numTracers, std::string file, do
                 }
             }
         }
+        fout.write((char *) &gals[0], gals.size()*sizeof(galaxy));
     }
-    fout.write((char *) &gals[0], gals.size()*sizeof(galaxy));
+    
     fout.close(); // Close file
     std::cout << "    Maximum Density = " << maxden << "\n";
 }

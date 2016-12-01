@@ -28,8 +28,7 @@ int main(int argc, char *argv[]) {
     std::ofstream fout;
     std::ofstream mout;
     
-    parameters p;
-    p.readParams(argv[1]);
+    parameters p(argv[1]);
     p.print();
     
     double Hz = sqrt(p.getd("Omega_M")*(1.0+p.getd("z"))*(1.0+p.getd("z"))*(1.0+p.getd("z"))

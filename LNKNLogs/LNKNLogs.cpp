@@ -179,8 +179,8 @@ int main(int argc, char *argv[]) {
     fftw_init_threads();
     double *dr3di = new double[N_tot];
     fftw_complex *dk3di = new fftw_complex[N_im];
-//     double *dr3dm = new double[N_tot];
-//     fftw_complex *dk3dm = new fftw_complex[N_im];
+    double *dr3dm = new double[N_tot];
+    fftw_complex *dk3dm = new fftw_complex[N_im];
     
     fftw_import_wisdom_from_filename("FFTWWisdom.dat");
     fftw_plan_with_nthreads(p.numCores);
@@ -188,10 +188,10 @@ int main(int argc, char *argv[]) {
                                                  FFTW_MEASURE);
     fftw_plan dr3di2dk3di = fftw_plan_dft_r2c_3d(p.N.x, p.N.y, p.N.z, dr3di, dk3di, 
                                                  FFTW_MEASURE);
-//     fftw_plan dk3dm2dr3dm = fftw_plan_dft_c2r_3d(p.N.x, p.N.y, p.N.z, dk3dm, dr3dm, 
-//                                                  FFTW_MEASURE);
-//     fftw_plan dr3dm2dk3dm = fftw_plan_dft_r2c_3d(p.N.x, p.N.y, p.N.z, dr3dm, dk3dm, 
-//                                                  FFTW_MEASURE);
+    fftw_plan dk3dm2dr3dm = fftw_plan_dft_c2r_3d(p.N.x, p.N.y, p.N.z, dk3dm, dr3dm, 
+                                                 FFTW_MEASURE);
+    fftw_plan dr3dm2dk3dm = fftw_plan_dft_r2c_3d(p.N.x, p.N.y, p.N.z, dr3dm, dk3dm, 
+                                                 FFTW_MEASURE);
     fftw_export_wisdom_to_filename("FFTWWisdom.dat");
     
     std::cout << "    Reading in input power spectrum...\n";
@@ -214,22 +214,22 @@ int main(int argc, char *argv[]) {
     
     std::cout << "    Filling k-space cubes...\n";
     Gendk(p.N, p.L, bias, &kin[0], &Pin[0], Pin.size(), dk3di);
-//     Gendk(p.N, p.L, 1.0, &kin[0], &Pin[0], Pin.size(), dk3dm);
+    Gendk(p.N, p.L, 1.0, &kin[0], &Pin[0], Pin.size(), dk3dm);
     
     std::cout << "    Taking the inverse Fourier transform...\n";
     fftw_execute(dk3di2dr3di);
-//     fftw_execute(dk3dm2dr3dm);
+    fftw_execute(dk3dm2dr3dm);
     
     std::cout << "    Taking the natural log...\n";
     //#pragma omp parallel for schedule(auto)
     for (int i = 0; i < N_tot; ++i) {
         dr3di[i] = log(1.0+dr3di[i]);
-//         dr3dm[i] = log(1.0+dr3dm[i]);
+        dr3dm[i] = log(1.0+dr3dm[i]);
     }
     
     std::cout << "    Going back to k-space...\n";
     fftw_execute(dr3di2dk3di);
-//     fftw_execute(dr3dm2dk3dm);
+    fftw_execute(dr3dm2dk3dm);
     
     double *dk3diout = new double[N_im];
     std::cout << "    Normalizing and transfering to permenant storage...\n";
@@ -237,30 +237,32 @@ int main(int argc, char *argv[]) {
     for(int i = 0; i < N_im; ++i) {
         dk3di[i][0] /= double(N_tot);
         dk3di[i][1] /= double(N_tot);
-//         dk3dm[i][0] /= double(N_tot);
-//         dk3dm[i][1] /= double(N_tot);
+        dk3dm[i][0] /= double(N_tot);
+        dk3dm[i][1] /= double(N_tot);
         
-        if (dk3di[i][0] < 0) dk3diout[i] = 0.0;
-        else dk3diout[i] = dk3di[i][0];
-//         if (dk3dm[i][0] < 0) dk3dm[i][0] = 0.0;
-        
-//         if (dk3di[i][0] > 0) dk3di[i][1] = dk3dm[i][0]/dk3di[i][0];
-//         else dk3di[i][1] = 0.0;
+        if (dk3di[i][0] > 0 && dk3dm[i][0] > 0) {
+            dk3di[i][1] = dk3dm[i][0]/dk3di[i][0];
+        } else if (dk3di[i][0] < 0) {
+            dk3di[i][0] = 0.0;
+            dk3di[i][1] = 0.0;
+        } else if (dk3dm[i][0] < 0) {
+            dk3di[i][1] = 0.0;
+        }
     }
     
     std::cout << "Zeroth element of k-space array: " << dk3di[0][0] << "\n";
     
     double fileioTime = omp_get_wtime();
     fout.open(p.dk3difile.c_str(), std::ios::out|std::ios::binary);
-    fout.write((char *) dk3diout, N_im*sizeof(double));
+    fout.write((char *) dk3di, N_im*sizeof(fftw_complex));
     fout.close();
     std::cout << "    Time to write binary file: " << omp_get_wtime()-fileioTime << " s\n";
     
     delete[] dr3di;
     delete[] dk3di;
     delete[] dk3diout;
-//     delete[] dk3dm;
-//     delete[] dr3dm;
+    delete[] dk3dm;
+    delete[] dr3dm;
     
     std::cout << "Starting mock catalog creation...\n";
     std::vector< double > dr3d(N_tot);
@@ -282,8 +284,8 @@ int main(int argc, char *argv[]) {
                                                  FFTW_MEASURE);
     fftw_destroy_plan(dr3di2dk3di);
     fftw_destroy_plan(dk3di2dr3di);
-//     fftw_destroy_plan(dk3dm2dr3dm);
-//     fftw_destroy_plan(dr3dm2dk3dm);
+    fftw_destroy_plan(dk3dm2dr3dm);
+    fftw_destroy_plan(dr3dm2dk3dm);
     for (int mock = p.startNum; mock < p.numMocks+p.startNum; ++mock) {
         double startTime = omp_get_wtime();
         
