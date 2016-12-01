@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     nz[1] -= 1.0;
     red[0] = red_min;
     nz[numZBins + 1] = 1.0/numMockGals;
-    nz[numZBins] -= 1.0
+    nz[numZBins] -= 1.0;
     red[numZBins + 1] = red_max;
     for (int i = 1; i <= numZBins; ++i) {
         nz[i] /= numMockGals;
@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "totalRans = " << totalRans << std::endl;
-    std::cout << "file size = " << double(totalRans*sizeof(galaxy))/1073741824.0 << " GiB" << std::endl;
+    std::cout << "file size = " << double(totalRans*sizeof(galaxyf))/1073741824.0 << " GiB" << std::endl;
     
     std::random_device seeder;
     std::mt19937_64 gen(seeder());
@@ -141,7 +141,6 @@ int main(int argc, char *argv[]) {
     std::uniform_real_distribution<double> zdist(p.getd("z_min"), p.getd("z_max"));
     std::uniform_real_distribution<double> keep(0.0, 1.0);
     
-    std::vector<int> numGals(nin.size());
     long numRans = 0;
     bool moreRans = true;
     int numDraws = p.geti("numDraws");
@@ -153,7 +152,7 @@ int main(int argc, char *argv[]) {
         threadRans.reserve(numThreads);
         #pragma omp parallel num_threads(numThreads) reduction(+:numRans)
         {
-            std::vector<galaxy> rans;
+            std::vector<galaxyf> rans;
             for (int i = 0; i < numDraws; ++i) {
                 galaxy ran;
                 ran.x = xdist(gen);
@@ -190,6 +189,14 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < numThreads; ++i)
             fout.write((char *) &threadRans[i][0], threadRans[i].size()*sizeof(galaxyf));
         
+        std::cout.width(20);
+        std::cout << "\r" << numRans << "/";
+        std::cout.width(20);
+        std::cout << totalRans;
+        std::cout.width(20);
+        std::cout << double(numRans)/double(totalRans) << "%";
+        
+        if (numThreads*numDraws + numRans > totalRans) numDraws = (totalRans - numRans)/numThreads;
         if (numRans >= totalRans) moreRans = false;
     }
     fout.close();
@@ -197,7 +204,16 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl;
     
     delete[] mask;
-    delete[] numGalvsz;
+    delete[] nz;
+    delete[] red;
+    
+    for (int i = 0; i < numZBins; ++i) {
+        gsl_spline_free(massSplines[i]);
+        gsl_interp_accel_free(accs[i]);
+    }
+    
+    gsl_spline_free(n_of_z);
+    gsl_interp_accel_free(acc_n_of_z);
     
     return 0;
 }
