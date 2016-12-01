@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <algorithm>
 #include <vector>
 #include <random>
 #include <cmath>
@@ -97,9 +98,38 @@ int main(int argc, char *argv[]) {
     std::cout << "Setting up splines for halo mass probability..." << std::endl;
     
     std::vector<gsl_spline *> massSplines;
+    std::vector<gsl_interp_accel *> accs;
+    std::vector<min_max> M_minmax;
+    M_minmax.reserve(numZBins);
     massSplines.reserve(numZBins);
+    accs.reserve(numZBins);
     for (int i = 0; i < numZBins; ++i) {
-        std::vector<int> 
+        std::vector<double> nm(p.geti("numMassBins") + 2);
+        std::vector<double> m(p.geti("numMassBins") + 2);
+        int numGalsZbin = masses[i].size();
+        auto min = std::min_element(std::begin(masses[i]), std::end(masses[i]));
+        auto max = std::max_element(std::begin(masses[i]), std::end(masses[i]));
+        min_max temp = {*min, *max};
+        M_minmax[i] = temp;
+        double dm = (*max - *min)/p.getd("numMassBins");
+        for (int j = 0; j < numGalsZbin; ++j) {
+            int bin = ((masses[i][j] - *min)/dm) + 1;
+            nm[bin] += 1.0;
+        }
+        nm[0] = 1.0;
+        m[0] = *min;
+        nm[1] -= 1.0;
+        nm[p.geti("numMassBins") + 1] = 1.0;
+        m[p.geti("numMassBins") + 1] = *max;
+        nm[p.geti("numMassBins")] -= 1.0;
+        for (int j = 1; j <= p.geti("numMassBins"); ++j) {
+            nm[j] = log10(nm[j]/double(numGalsZbin));
+            m[j] = *min + (j + 0.5)*dm;
+        }
+        massSplines[i] = gsl_spline_alloc(gsl_interp_cspline, p.geti("numMassBins") + 2);
+        accs[i] = gsl_interp_accel_alloc();
+        gsl_spline_init(massSplines[i], &m[0], &nm[0], p.geti("numMassBins") + 2);
+    }
 
     std::cout << "totalRans = " << totalRans << std::endl;
     std::cout << "file size = " << double(totalRans*sizeof(galaxy))/1073741824.0 << " GiB" << std::endl;
