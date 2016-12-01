@@ -52,14 +52,14 @@ int main(int argc, char *argv[]) {
     }
     
     int numMockGals = 0;
-    std::vector<std::vector<double>> masses;
-    masses.reserve(numZBins);
+    std::vector<std::vector<double>> masses(numZBins);
+    //masses.reserve(numZBins);
     std::cout << "Reading in full mock and creating mask..." << std::endl;
     fin.open(p.gets("fullMock").c_str(), std::ios::in);
     while (!fin.eof()) {
         double ra, dec, red, mass;
         fin >> ra >> dec >> red >> mass;
-        if (red >= red_min && red <= red_max) {
+        if (red >= red_min && red <= red_max && !fin.eof()) {
             ra *= pi/180.0;
             dec -= 90.0;
             dec = fabs(dec)*pi/180.0;
@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
         }
     }
     fin.close();
+    std::cout << std::endl;
     
     std::cout << "numMockGals = " << numMockGals << std::endl;
     int totalRans = timesRan*numMockGals;
@@ -86,10 +87,13 @@ int main(int argc, char *argv[]) {
     nz[numZBins + 1] = 1.0/numMockGals;
     nz[numZBins] -= 1.0;
     red[numZBins + 1] = red_max;
+    //std::cout << red[0] << std::endl;
     for (int i = 1; i <= numZBins; ++i) {
         nz[i] /= numMockGals;
-        red[i] = (i + 0.5)*dz;
+        red[i] = red_min + (i - 0.5)*dz;
+        //std::cout << red[i] << std::endl;
     }
+    //std::cout << red[numZBins + 1] << std::endl;
     
     gsl_spline *n_of_z = gsl_spline_alloc(gsl_interp_cspline, numZBins + 2);
     gsl_interp_accel *acc_n_of_z = gsl_interp_accel_alloc();
@@ -124,7 +128,7 @@ int main(int argc, char *argv[]) {
         nm[p.geti("numMassBins")] -= 1.0;
         for (int j = 1; j <= p.geti("numMassBins"); ++j) {
             nm[j] = log10(nm[j]/double(numGalsZbin));
-            m[j] = *min + (j + 0.5)*dm;
+            m[j] = *min + (j - 0.5)*dm;
         }
         massSplines[i] = gsl_spline_alloc(gsl_interp_cspline, p.geti("numMassBins") + 2);
         accs[i] = gsl_interp_accel_alloc();
@@ -148,55 +152,45 @@ int main(int argc, char *argv[]) {
     std::cout << "Generating randoms..." << std::endl;
     fout.open(p.gets("ransFile").c_str(), std::ios::out|std::ios::binary);
     while (moreRans) {
-        std::vector<std::vector<galaxyf>> threadRans;
-        threadRans.reserve(numThreads);
-        #pragma omp parallel num_threads(numThreads) reduction(+:numRans)
-        {
-            std::vector<galaxyf> rans;
-            for (int i = 0; i < numDraws; ++i) {
-                galaxy ran;
-                ran.x = xdist(gen);
-                ran.y = ydist(gen);
-                ran.z = zdist(gen);
-                cartesian2equatorial(&ran, 1, Omega_M, Omega_L, w);
-                double phi = ran.ra*pi/180.0;
-                double theta = fabs(ran.dec - 90.0)*pi/180.0;
-                long pix;
-                ang2pix_nest(nside, theta, phi, &pix);
-                if (mask[pix] == 1 && ran.red >= red_min && ran.red <= red_max) {
-                    int zbin = (ran.red - red_min)/dz;
-                    double z_prob = gsl_spline_eval(n_of_z, ran.red, acc_n_of_z);
-                    if (z_prob >= keep(gen)) {
-                        bool noMass = true;
-                        while (noMass) {
-                            double m = M_minmax[zbin].min + (M_minmax[zbin].max - M_minmax[zbin].min)*keep(gen);
-                            if (m <= M_minmax[zbin].max) {
-                                double massProb = gsl_spline_eval(massSplines[zbin], m, accs[zbin]);
-                                massProb = pow(10.0,massProb);
-                                if (massProb >= keep(gen)) {
-                                    galaxyf add = {ran.ra, ran.dec, ran.red, 0.0, pow(10.0, m)};
-                                    rans.push_back(add);
-                                    noMass = false;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            numRans += rans.size();
-            threadRans[omp_get_thread_num()] = rans;
-        }
-        for (int i = 0; i < numThreads; ++i)
-            fout.write((char *) &threadRans[i][0], threadRans[i].size()*sizeof(galaxyf));
-        
         std::cout.width(20);
         std::cout << "\r" << numRans << "/";
         std::cout.width(20);
         std::cout << totalRans;
         std::cout.width(20);
         std::cout << double(numRans)/double(totalRans) << "%";
+        std::cout.flush();
+        std::vector<galaxyf> threadRans;
+        //#pragma omp parallel num_threads(numThreads) reduction(+:numRans)
+        for (int i = 0; i < numDraws; ++i) {
+            galaxy ran;
+            ran.x = xdist(gen);
+            ran.y = ydist(gen);
+            ran.z = zdist(gen);
+            cartesian2equatorial(&ran, 1, Omega_M, Omega_L, w);
+            double phi = ran.ra*pi/180.0;
+            double theta = fabs(ran.dec - 90.0)*pi/180.0;
+            long pix;
+            ang2pix_nest(nside, theta, phi, &pix);
+            if (mask[pix] == 1 && ran.red >= red_min && ran.red <= red_max) {
+                int zbin = ((ran.red - red_min)/dz) + 1;
+                double z_prob = gsl_spline_eval(n_of_z, ran.red, acc_n_of_z);
+                if (z_prob >= keep(gen)) {
+                    double m = M_minmax[zbin-1].min + (M_minmax[zbin-1].max - M_minmax[zbin-1].min)*keep(gen);
+                    if (m <= M_minmax[zbin].max) {
+                        double massProb = gsl_spline_eval(massSplines[zbin-1], m, accs[zbin-1]);
+                        massProb = pow(10.0,massProb);
+                        if (massProb >= keep(gen)) {
+                            galaxyf add = {ran.ra, ran.dec, ran.red, 0.0, pow(10.0, m)};
+                            threadRans.push_back(add);
+                        }
+                    }
+                }
+            }
+        }
+        numRans += threadRans.size();
+        fout.write((char *) &threadRans[0], threadRans.size()*sizeof(galaxyf));
         
-        if (numThreads*numDraws + numRans > totalRans) numDraws = (totalRans - numRans)/numThreads;
+        //if (numThreads*numDraws + numRans > totalRans) numDraws = (totalRans - numRans)/numThreads;
         if (numRans >= totalRans) moreRans = false;
     }
     fout.close();
