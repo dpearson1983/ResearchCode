@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     fin.close();
     
     std::cout << "numMockGals = " << numMockGals << std::endl;
-    int numNeeded = timesRan*numMockGals;
+    int totalRans = timesRan*numMockGals;
     
     std::cout << "Setting up spline for redshift probability..." << std::endl;
     nz[0] = 1.0/numMockGals;
@@ -150,9 +150,9 @@ int main(int argc, char *argv[]) {
     fout.open(p.gets("ransFile").c_str(), std::ios::out|std::ios::binary);
     while (moreRans) {
         std::vector<std::vector<galaxyf>> threadRans;
+        threadRans.reserve(numThreads);
         #pragma omp parallel num_threads(numThreads) reduction(+:numRans)
         {
-            int numAccepted = 0;
             std::vector<galaxy> rans;
             for (int i = 0; i < numDraws; ++i) {
                 galaxy ran;
@@ -165,16 +165,32 @@ int main(int argc, char *argv[]) {
                 long pix;
                 ang2pix_nest(nside, theta, phi, &pix);
                 if (mask[pix] == 1 && ran.red >= red_min && ran.red <= red_max) {
-                    // Determine probability of keeping galaxy based on number density profile
-                    
+                    int zbin = (ran.red - red_min)/dz;
+                    double z_prob = gsl_spline_eval(n_of_z, ran.red, acc_n_of_z);
+                    if (z_prob >= keep(gen)) {
+                        bool noMass = true;
+                        while (noMass) {
+                            double m = M_minmax[zbin].min + (M_minmax[zbin].max - M_minmax[zbin].min)*keep(gen);
+                            if (m <= M_minmax[zbin].max) {
+                                double massProb = gsl_spline_eval(massSplines[zbin], m, accs[zbin]);
+                                massProb = pow(10.0,massProb);
+                                if (massProb >= keep(gen)) {
+                                    galaxyf add = {ran.ra, ran.dec, ran.red, 0.0, pow(10.0, m)};
+                                    rans.push_back(add);
+                                    noMass = false;
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            numRans += numAccepted;
+            numRans += rans.size();
+            threadRans[omp_get_thread_num()] = rans;
         }
         for (int i = 0; i < numThreads; ++i)
             fout.write((char *) &threadRans[i][0], threadRans[i].size()*sizeof(galaxyf));
         
-        if (numRans >= numNeeded) moreRans = false;
+        if (numRans >= totalRans) moreRans = false;
     }
     fout.close();
     gsl_integration_workspace_free(w);
