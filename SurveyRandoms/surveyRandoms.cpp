@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     std::cout << "npix = " << npix << std::endl;
     std::cout << "Initializing mask..." << std::endl;
     int *mask = new int[npix];
-    double *nz = new double[p.geti("numZBins") + 2];
+    double *nz = new double[p.geti("numZBins")];
     double *red = new double[p.geti("numZBins") + 2];
 #pragma omp parallel for
     for (int i = 0; i < npix; ++i) {
@@ -57,9 +57,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Reading in full mock and creating mask..." << std::endl;
     fin.open(p.gets("fullMock").c_str(), std::ios::in);
     while (!fin.eof()) {
-        double ra, dec, red, mass;
-        fin >> ra >> dec >> red >> mass;
-        if (red >= red_min && red <= red_max && !fin.eof()) {
+        double ra, dec, redt, mass;
+        fin >> ra >> dec >> redt >> mass;
+        if (redt >= red_min && redt <= red_max && !fin.eof()) {
             ra *= pi/180.0;
             dec -= 90.0;
             dec = fabs(dec)*pi/180.0;
@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
             ang2pix_nest(nside, dec, ra, &pix);
             mask[pix] = 1;
             
-            int zbin = (red - red_min)/dz;
-            nz[zbin + 1]++;
+            int zbin = (redt - red_min)/dz;
+            nz[zbin]++;
             numMockGals++;
             masses[zbin].push_back(log10(mass));
         }
@@ -81,23 +81,44 @@ int main(int argc, char *argv[]) {
     int totalRans = timesRan*numMockGals;
     
     std::cout << "Setting up spline for redshift probability..." << std::endl;
-    nz[0] = 1.0/numMockGals;
-    nz[1] -= 1.0;
+    double sumNbar = 0.0;
     red[0] = red_min;
-    nz[numZBins + 1] = 1.0/numMockGals;
-    nz[numZBins] -= 1.0;
     red[numZBins + 1] = red_max;
-    //std::cout << red[0] << std::endl;
-    for (int i = 1; i <= numZBins; ++i) {
+    gsl_integration_workspace *w = gsl_integration_workspace_alloc(10000000);
+    for (int i = 0; i < numZBins; ++i) {
+//         double z_low = red_min + i*dz;
+//         double z_high = red_min + (i + 1)*dz;
+//         double r_low = rz(z_low, Omega_M, Omega_L, w);
+//         double r_high = rz(z_high, Omega_M, Omega_L, w);
+//         double V = (4.0*pi*(r_high*r_high*r_high - r_low*r_low*r_low)*sky_frac)/3.0;
         nz[i] /= numMockGals;
-        red[i] = red_min + (i - 0.5)*dz;
-        //std::cout << red[i] << std::endl;
+        red[i + 1] = red_min + (i + 0.5)*dz;
+        sumNbar += nz[i];
     }
-    //std::cout << red[numZBins + 1] << std::endl;
+    sumNbar += nz[numZBins - 1] + (nz[numZBins - 1] - nz[numZBins - 2])/2.0;
+    double *n_cdf = new double[numZBins + 2];
+    double accumulate = 0.0;
+    n_cdf[0] = 0.0;
+    n_cdf[numZBins + 1] = 1.0;
+    std::cout << red[0] << " " << n_cdf[0] << std::endl;
+    for (int i = 0; i < numZBins; ++i) {
+        nz[i] /= sumNbar;
+        accumulate += nz[i];
+        n_cdf[i + 1] = accumulate;
+        std::cout << red[i + 1] << " " << n_cdf[i + 1] << std::endl;
+    }
+    delete[] nz;
+    std::cout << red[numZBins + 1] << " " << n_cdf[numZBins + 1] << std::endl;
     
     gsl_spline *n_of_z = gsl_spline_alloc(gsl_interp_cspline, numZBins + 2);
     gsl_interp_accel *acc_n_of_z = gsl_interp_accel_alloc();
-    gsl_spline_init(n_of_z, red, nz, numZBins + 2);
+    gsl_spline_init(n_of_z, n_cdf, red, numZBins + 2);
+    
+    for (int i = 0; i < 10; ++i) {
+        double val = (i + 1.0)/10.0;
+        double result = gsl_spline_eval(n_of_z, val, acc_n_of_z);
+        std::cout << val << " " << result << std::endl;
+    }
     
     std::cout << "Setting up splines for halo mass probability..." << std::endl;
     
@@ -118,21 +139,27 @@ int main(int argc, char *argv[]) {
         double dm = (*max - *min)/p.getd("numMassBins");
         for (int j = 0; j < numGalsZbin; ++j) {
             int bin = ((masses[i][j] - *min)/dm) + 1;
+            if (bin == p.geti("numMassBins") + 1) --bin;
             nm[bin] += 1.0;
         }
-        nm[0] = 1.0;
+        nm[0] = 0.0;
         m[0] = *min;
-        nm[1] -= 1.0;
-        nm[p.geti("numMassBins") + 1] = 1.0;
         m[p.geti("numMassBins") + 1] = *max;
-        nm[p.geti("numMassBins")] -= 1.0;
+        double accum = 0.0;
         for (int j = 1; j <= p.geti("numMassBins"); ++j) {
-            nm[j] = log10(nm[j]/double(numGalsZbin));
+            if (nm[j] == 0) std::cout << "nm[" << j << "] = 0 for zbin = " << i << std::endl;
+            accum += (nm[j]/double(numGalsZbin));
+            nm[j] = accum;
             m[j] = *min + (j - 0.5)*dm;
+        }
+        accum += nm[p.geti("numMassBins")] + (nm[p.geti("numMassBins")] - nm[p.geti("numMassBins") - 1])/2.0;
+        nm[p.geti("numMassBins") + 1] = accum;
+        for (int j = 0; j <= p.geti("numMassBins") + 1; ++j) {
+            nm[j] /= accum;
         }
         massSplines[i] = gsl_spline_alloc(gsl_interp_cspline, p.geti("numMassBins") + 2);
         accs[i] = gsl_interp_accel_alloc();
-        gsl_spline_init(massSplines[i], &m[0], &nm[0], p.geti("numMassBins") + 2);
+        gsl_spline_init(massSplines[i], &nm[0], &m[0], p.geti("numMassBins") + 2);
     }
 
     std::cout << "totalRans = " << totalRans << std::endl;
@@ -140,65 +167,60 @@ int main(int argc, char *argv[]) {
     
     std::random_device seeder;
     std::mt19937_64 gen(seeder());
-    std::uniform_real_distribution<double> xdist(p.getd("x_min"), p.getd("x_max"));
-    std::uniform_real_distribution<double> ydist(p.getd("y_min"), p.getd("y_max"));
-    std::uniform_real_distribution<double> zdist(p.getd("z_min"), p.getd("z_max"));
-    std::uniform_real_distribution<double> keep(0.0, 1.0);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
     
     long numRans = 0;
     bool moreRans = true;
     int numDraws = p.geti("numDraws");
-    gsl_integration_workspace *w = gsl_integration_workspace_alloc(10000000);
     std::cout << "Generating randoms..." << std::endl;
     fout.open(p.gets("ransFile").c_str(), std::ios::out|std::ios::binary);
     while (moreRans) {
+        std::vector<galaxyf> rans;
+        for (int i = 0; i < numDraws; ++i) {
+            double RA = 2.0*pi*dist(gen);
+            double DEC = acos(2.0*dist(gen) - 1.0);
+            long pix;
+            ang2pix_nest(nside, DEC, RA, &pix);
+            if (pix >= npix) std::cout << "pix = " << pix << " >= " << npix << std::endl;
+            if (mask[pix] == 1) {
+                galaxyf ran;
+                ran.ra = RA*(180.0/pi);
+                DEC *= (180.0/pi);
+                ran.dec = fabs(DEC - 180.0) - 90.0;
+                double splineNum = dist(gen);
+                ran.red = gsl_spline_eval(n_of_z, splineNum, acc_n_of_z);
+                int zbin = (ran.red - red_min)/dz;
+                if (ran.red > red_max || ran.red < red_min) {
+                    std::cout << "ERROR: Invalid redshift." << std::endl;
+                    std::cout << "    ran.red = " << ran.red << std::endl;
+                    std::cout << "    red_max = " << red_max << std::endl;
+                    std::cout << "  splineNum = " << splineNum << std::endl;
+                    continue;
+                }
+                if (ran.red == red_max) --zbin;
+                ran.bias = pow(10.0,gsl_spline_eval(massSplines[zbin], dist(gen), accs[zbin]));
+                ran.nbar = 0.0;
+                rans.push_back(ran);
+                numRans += 1;
+            }
+        }
+        fout.write((char *) &rans[0], rans.size()*sizeof(galaxyf));
+        if (numRans >= totalRans) moreRans = false;
+        std::cout << "\r";
         std::cout.width(20);
-        std::cout << "\r" << numRans << "/";
+        std::cout << numRans << "/";
         std::cout.width(20);
         std::cout << totalRans;
         std::cout.width(20);
-        std::cout << double(numRans)/double(totalRans) << "%";
+        std::cout << 100.0*(double(numRans)/double(totalRans)) << "%";
         std::cout.flush();
-        std::vector<galaxyf> threadRans;
-        //#pragma omp parallel num_threads(numThreads) reduction(+:numRans)
-        for (int i = 0; i < numDraws; ++i) {
-            galaxy ran;
-            ran.x = xdist(gen);
-            ran.y = ydist(gen);
-            ran.z = zdist(gen);
-            cartesian2equatorial(&ran, 1, Omega_M, Omega_L, w);
-            double phi = ran.ra*pi/180.0;
-            double theta = fabs(ran.dec - 90.0)*pi/180.0;
-            long pix;
-            ang2pix_nest(nside, theta, phi, &pix);
-            if (mask[pix] == 1 && ran.red >= red_min && ran.red <= red_max) {
-                int zbin = ((ran.red - red_min)/dz) + 1;
-                double z_prob = gsl_spline_eval(n_of_z, ran.red, acc_n_of_z);
-                if (z_prob >= keep(gen)) {
-                    double m = M_minmax[zbin-1].min + (M_minmax[zbin-1].max - M_minmax[zbin-1].min)*keep(gen);
-                    if (m <= M_minmax[zbin].max) {
-                        double massProb = gsl_spline_eval(massSplines[zbin-1], m, accs[zbin-1]);
-                        massProb = pow(10.0,massProb);
-                        if (massProb >= keep(gen)) {
-                            galaxyf add = {ran.ra, ran.dec, ran.red, 0.0, pow(10.0, m)};
-                            threadRans.push_back(add);
-                        }
-                    }
-                }
-            }
-        }
-        numRans += threadRans.size();
-        fout.write((char *) &threadRans[0], threadRans.size()*sizeof(galaxyf));
-        
-        //if (numThreads*numDraws + numRans > totalRans) numDraws = (totalRans - numRans)/numThreads;
-        if (numRans >= totalRans) moreRans = false;
     }
     fout.close();
     gsl_integration_workspace_free(w);
     std::cout << std::endl;
     
     delete[] mask;
-    delete[] nz;
+    delete[] n_cdf;
     delete[] red;
     
     for (int i = 0; i < numZBins; ++i) {
