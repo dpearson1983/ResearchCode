@@ -54,7 +54,7 @@
 #include "lognormal.h"
 
 struct parameters{
-    std::string inPkFile, outbase, ext, dk3difile, ratiofile;
+    std::string inPkFile, outbase, ext, dk3difile, ratiofile, deltakFile, deltarFile, outdelta;
     int numMocks, startNum, digits, numCores, numTracers;
     double f, h, Omega_L, Omega_m, z;
     std::vector< double > b;
@@ -94,6 +94,9 @@ void assignParams(std::vector< std::string > input) {
     else if (name == "Omega_m") p.Omega_m = atof(val.c_str());
     else if (name == "z") p.z = atof(val.c_str());
     else if (name == "numCores") p.numCores = atof(val.c_str());
+    else if (name == "outdelta") p.outdelta = val;
+    else if (name == "deltakFile") p.deltakFile = val;
+    else if (name == "deltarFile") p.deltarFile = val;
     else if (name == "numGals") {
         std::istringstream iss(input[1]);
         std::string s;
@@ -315,6 +318,12 @@ int main(int argc, char *argv[]) {
             vr3dz[i] *= 100.0*p.h*beta*sqrt(p.Omega_m*(1.0+p.z)*(1.0+p.z)*(1.0+p.z)+p.Omega_L);
         }
         
+        if (p.outdelta == "true") {
+            fout.open(p.deltakFile.c_str(), std::ios::out|std::ios::binary);
+            fout.write((char *) &dk3d[0], N_im*sizeof(fftw_complex));
+            fout.close();
+        }
+        
         std::cout << "    Transforming dk3d...\n";
         fftwTime = omp_get_wtime();
         fftw_execute(dk3d2dr3d);
@@ -334,6 +343,12 @@ int main(int argc, char *argv[]) {
             variance += ((dr3d[i])*(dr3d[i]))/double(N_tot - 1.0);
         }
         
+        if (p.outdelta == "true") {
+            fout.open(p.deltarFile.c_str(), std::ios::out|std::ios::binary);
+            fout.write((char *) &dr3d[0], N_tot*sizeof(double));
+            fout.close();
+        }
+        
         std::cout << "    variance = " << variance << "\n";
         
         std::cout << "    Poisson sampling...\n";
@@ -343,22 +358,6 @@ int main(int argc, char *argv[]) {
         std::cout << "    Sampling Time: " << omp_get_wtime()-sampTime << " s\n";
         
         std::cout << "  Time to create mock: " << omp_get_wtime()-startTime << " s\n";
-        
-//         fout.open("DensitySlice.dat",std::ios::out);
-//         for (int i = 0; i < p.N.x; ++i) {
-//             double x = (p.L.x/double(p.N.x))*(i+0.5);
-//             for (int j = 0; j < p.N.y; ++j) {
-//                 double y = (p.L.y/double(p.N.y))*(j+0.5);
-//                 double density = 0.0;
-//                 //for (int k = 0; k < 11; ++k) {
-//                 int k = 364;
-//                     int index = k + p.N.z*(j + p.N.y*i);
-//                     density += dr3d[index];
-//                 //}
-//                 fout << x << " " << y << " " << density <<  " " << vr3dx[index] << " " << vr3dy[index] << "\n";
-//             }
-//         }
-//         fout.close();
     }
     delete[] nbar;
     fftw_destroy_plan(dk3d2dr3d);
