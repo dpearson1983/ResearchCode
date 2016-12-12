@@ -51,6 +51,8 @@ int main(int argc, char *argv[]) {
         nz[i] = 0.0;
     }
     
+    double mass_max = 0.0;
+    double mass_min = 1000000.0;
     int numMockGals = 0;
     std::vector<std::vector<double>> masses(numZBins);
     //masses.reserve(numZBins);
@@ -72,10 +74,15 @@ int main(int argc, char *argv[]) {
             nz[zbin]++;
             numMockGals++;
             masses[zbin].push_back(log10(mass));
+            if (mass < mass_min) mass_min = mass;
+            if (mass > mass_max) mass_max = mass;
         }
     }
     fin.close();
     std::cout << std::endl;
+    
+    std::cout << "mass_min = " << mass_min << std::endl;
+    std::cout << "mass_max = " << mass_max << std::endl;
     
     std::cout << "numMockGals = " << numMockGals << std::endl;
     int totalRans = timesRan*numMockGals;
@@ -86,11 +93,6 @@ int main(int argc, char *argv[]) {
     red[numZBins + 1] = red_max;
     gsl_integration_workspace *w = gsl_integration_workspace_alloc(10000000);
     for (int i = 0; i < numZBins; ++i) {
-//         double z_low = red_min + i*dz;
-//         double z_high = red_min + (i + 1)*dz;
-//         double r_low = rz(z_low, Omega_M, Omega_L, w);
-//         double r_high = rz(z_high, Omega_M, Omega_L, w);
-//         double V = (4.0*pi*(r_high*r_high*r_high - r_low*r_low*r_low)*sky_frac)/3.0;
         nz[i] /= numMockGals;
         red[i + 1] = red_min + (i + 0.5)*dz;
         sumNbar += nz[i];
@@ -110,7 +112,7 @@ int main(int argc, char *argv[]) {
     delete[] nz;
     std::cout << red[numZBins + 1] << " " << n_cdf[numZBins + 1] << std::endl;
     
-    gsl_spline *n_of_z = gsl_spline_alloc(gsl_interp_cspline, numZBins + 2);
+    gsl_spline *n_of_z = gsl_spline_alloc(gsl_interp_steffen, numZBins + 2);
     gsl_interp_accel *acc_n_of_z = gsl_interp_accel_alloc();
     gsl_spline_init(n_of_z, n_cdf, red, numZBins + 2);
     
@@ -128,6 +130,7 @@ int main(int argc, char *argv[]) {
     M_minmax.reserve(numZBins);
     massSplines.reserve(numZBins);
     accs.reserve(numZBins);
+    fout.open("massBinInfo.dat", std::ios::out);
     for (int i = 0; i < numZBins; ++i) {
         std::vector<double> nm(p.geti("numMassBins") + 2);
         std::vector<double> m(p.geti("numMassBins") + 2);
@@ -138,6 +141,7 @@ int main(int argc, char *argv[]) {
         M_minmax[i] = temp;
         double dm = (*max - *min)/p.getd("numMassBins");
         for (int j = 0; j < numGalsZbin; ++j) {
+            //if (masses[i][j] == *max) continue;
             int bin = ((masses[i][j] - *min)/dm) + 1;
             if (bin == p.geti("numMassBins") + 1) --bin;
             nm[bin] += 1.0;
@@ -146,21 +150,42 @@ int main(int argc, char *argv[]) {
         m[0] = *min;
         m[p.geti("numMassBins") + 1] = *max;
         double accum = 0.0;
+        nm[p.geti("numMassBins") + 1] = 0.01*nm[p.geti("numMassBins")];
+        if (nm[p.geti("numMassBins") + 1] < 0) {
+            std::cout << "Bad trend..." << std::endl;
+            std::cout << "nm[11] = " << nm[p.geti("numMassBins") + 1] << std::endl;
+        }
         for (int j = 1; j <= p.geti("numMassBins"); ++j) {
             if (nm[j] == 0) std::cout << "nm[" << j << "] = 0 for zbin = " << i << std::endl;
-            accum += (nm[j]/double(numGalsZbin));
+            accum += nm[j];
             nm[j] = accum;
             m[j] = *min + (j - 0.5)*dm;
         }
-        accum += nm[p.geti("numMassBins")] + (nm[p.geti("numMassBins")] - nm[p.geti("numMassBins") - 1])/2.0;
+        accum += nm[p.geti("numMassBins") + 1];
         nm[p.geti("numMassBins") + 1] = accum;
         for (int j = 0; j <= p.geti("numMassBins") + 1; ++j) {
             nm[j] /= accum;
+            fout << m[j] << " " << nm[j] << "\n";
         }
-        massSplines[i] = gsl_spline_alloc(gsl_interp_cspline, p.geti("numMassBins") + 2);
+        fout << "\n" << std::endl;
+        massSplines[i] = gsl_spline_alloc(gsl_interp_steffen, p.geti("numMassBins") + 2);
         accs[i] = gsl_interp_accel_alloc();
         gsl_spline_init(massSplines[i], &nm[0], &m[0], p.geti("numMassBins") + 2);
     }
+    fout.close();
+    
+    fout.open("massStuff.dat", std::ios::out);
+    for (int i = 0; i < numZBins; ++i) {
+        fout << "m_min = " << M_minmax[i].min << "\n";
+        fout << "m_max = " << M_minmax[i].max << "\n";
+        for (int j = 0; j < 11; ++j) {
+            double x = j*0.1;
+            fout << x << " " << gsl_spline_eval(massSplines[i], x, accs[i]) << " ";
+            fout << pow(10.0,gsl_spline_eval(massSplines[i], x, accs[i])) << "\n";
+        }
+        fout << "\n\n";
+    }
+    fout.close();
 
     std::cout << "totalRans = " << totalRans << std::endl;
     std::cout << "file size = " << double(totalRans*sizeof(galaxyf))/1073741824.0 << " GiB" << std::endl;
