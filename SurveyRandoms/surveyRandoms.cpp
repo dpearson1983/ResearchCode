@@ -31,6 +31,8 @@ int main(int argc, char *argv[]) {
     double Omega_M = p.getd("Omega_M");
     double Omega_L = p.getd("Omega_L");
     double sky_frac = p.getd("surveyArea")*pi/129600.0;
+    double magLimit = 0.0;
+    if (p.getb("setMagLimit")) magLimit = p.getd("magLimit");
     int numZBins = p.geti("numZBins");
     double dz = (red_max - red_min)/p.getd("numZBins");
     int numThreads = p.geti("numThreads");
@@ -60,9 +62,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Reading in full mock and creating mask..." << std::endl;
     fin.open(p.gets("fullMock").c_str(), std::ios::in);
     while (!fin.eof()) {
-        double ra, dec, redt, mass;
-        fin >> ra >> dec >> redt >> mass;
-        if (redt >= red_min && redt <= red_max && !fin.eof()) {
+        double ra, dec, redt, mass, app_mag;
+        fin >> ra >> dec >> redt >> mass >> app_mag;
+        if (redt >= red_min && redt <= red_max && !fin.eof() && (magLimit == 0 || app_mag <= magLimit)) {
             ra *= pi/180.0;
             dec -= 90.0;
             dec = fabs(dec)*pi/180.0;
