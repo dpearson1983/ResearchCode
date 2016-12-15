@@ -28,3 +28,36 @@
 #include <fftw3.h>
 #include <harppi.h>
 #include <bfunk.h>
+#include <pfunk.h>
+
+int main(int argc, char *argv[]) {
+    parameters p(argv[1]);
+    p.print();
+    
+    std::ifstream fin;
+    std::ofstream fout;
+    
+    // Read in and grid the randoms
+    
+    // Read in and grid the galaxies
+    
+    // Compute delta(r)
+    
+    // Fourier transform delta(r) to get delta(k)
+    
+    // Setup B(k_i,k_j,k_l) grid
+    
+    // Loop over the grid to compute the bispectrum
+    
+        // Copy the appropriate values from delta(k) onto grids for k_i, k_j, k_l
+    
+        // Fourier transform the grids
+    
+        // Loop over the real space grids computing the product and adding it to the corresponding B(k_i,k_j,k_l)
+    
+    // Normalize the data
+    
+    // Output to file
+    
+    return 0;
+}
