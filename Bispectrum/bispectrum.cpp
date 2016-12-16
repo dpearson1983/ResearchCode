@@ -29,6 +29,7 @@
 #include <harppi.h>
 #include <bfunk.h>
 #include <pfunk.h>
+#include <pods.h>
 
 int main(int argc, char *argv[]) {
     parameters p(argv[1]);
@@ -37,7 +38,13 @@ int main(int argc, char *argv[]) {
     std::ifstream fin;
     std::ofstream fout;
     
+    int3 N = {p.geti("Nx"), p.geti("Ny"), p.geti("Nz")};
+    int N_r = N.x*N.y*N.z;
+    int N_k = N.x*N.y*(N.z/2 + 1);
+    int N_p = N.x*N.y*2*(N.z/2 + 1);
+    
     // Read in and grid the randoms
+    
     
     // Read in and grid the galaxies
     
@@ -46,8 +53,27 @@ int main(int argc, char *argv[]) {
     // Fourier transform delta(r) to get delta(k)
     
     // Setup B(k_i,k_j,k_l) grid
+    int numKBins = p.geti("numKBins");
+    double k_min = p.getd("k_min");
+    double k_max = p.getd("k_max");
+    double dk = (k_max - k_min)/p.getd("numKBins");
+    std::vector<double> Bk;
+    Bk.reserve(numKBins*numKBins*numKBins);
+    
+    // Arrays for in-place FFTs
+    double *dk_i = new double[N_p];
+    double *dk_j = new double[N_p];
+    double *dk_l = new double[N_p];
     
     // Loop over the grid to compute the bispectrum
+    for (int i = 0; i < numKBins; ++i) {
+        double k_i = (i + 0.5)*dk;
+        
+        for (int j = i; j < numKBins; ++j) {
+            double k_j = (j + 0.5)*dk;
+            
+            for (int l = j; l < numKBins; ++l) {
+                double k_l = (l + 0.5)*dk;
     
         // Copy the appropriate values from delta(k) onto grids for k_i, k_j, k_l
     
