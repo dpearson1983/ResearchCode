@@ -13,6 +13,8 @@ void initArray(double *array, long int N);
 
 void initArray(fftw_complex *array, long int N);
 
+void initArray(int *array, long int N);
+
 void initArray(double *dr, fftw_complex *dk, long int N_r, long int N_k);
 
 void equatorial2cartesian(galaxy *gals, int N, double O_m, double O_L, gsl_integration_workspace *w);
@@ -35,6 +37,9 @@ double3 wbinCIC(galaxyf *gals, double *nden, double3 dr, int numGals, int3 N, do
 
 double3 wbinNGP(galaxyf *gals, double *nden, double3 dr, int numGals, int3 N, double3 rmin, double *redshift, double *nbar, int nVals, double Pk_FKP, double Omega_M, double Omega_L);
 
+void freqBinMono(fftw_complex *dk, double *P_0, int *N_k, int3 N, double3 L, double shotnoise, 
+                 double k_min, double k_max, int kBins, bool corr, int type);
+
 void freqBinPP(fftw_complex *dk3d, double *P_0, double *P_2, double *P_2shot, int *N_k, int3 N, 
                double3 L, double shotnoise, double k_min, double k_max, int kBins, bool corr, 
                int type);
@@ -52,5 +57,9 @@ void freqBinBS(fftw_complex *A_0, fftw_complex *A_2, double *P_0, double *P_2, i
                double3 L, double shotnoise, double kmin, double kmax, int kBins, bool corr, int type);
 
 void normalizePk(double *P_0, double *P_2, int *N_k, double gal_nbsqwsq, int N);
+
+void normalizePk(double *P_0, int *N_k, double gal_nbsqwsq, int N);
+
+void displayFFT(fftw_complex *dk);
 
 #endif

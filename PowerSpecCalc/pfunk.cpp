@@ -1,3 +1,4 @@
+#include <iostream>
 #include <pods.h>
 #include <fftw3.h>
 #include <fstream>
@@ -60,6 +61,12 @@ void initArray(fftw_complex *array, long int N) {
     for (int i = 0; i < N; ++i) {
         array[i][0] = 0.0;
         array[i][1] = 0.0;
+    }
+}
+
+void initArray(int *array, long int N) {
+    for (int i = 0; i < N; ++i) {
+        array[i] = 0;
     }
 }
 
@@ -371,7 +378,86 @@ double gridCorCIC(double kx, double ky, double kz, double3 dr) {
     double sincz = sin(0.5*kz*dr.z + 1E-17)/(0.5*kz*dr.z + 1E-17);
     double prodsinc = sincx*sincy*sincz;
     return 1.0/(prodsinc*prodsinc);
-}    
+}
+
+void displayFFT(fftw_complex *dk) {
+    std::ofstream fout;
+    fout.open("dk3dCast.dat", std::ios::out);
+    fout.precision(15);
+    for (int i = 0; i < 263168; ++i) {
+        fout << dk[i][0] << " " << dk[i][1] << "\n";
+        std::cout << dk[i][0] << " " << dk[i][1] << "\n";
+    }
+    fout.close();
+}
+
+void binFreq(fftw_complex dk, double *P_0, int bin, double grid_cor, double shotnoise) {
+    P_0[bin] += (dk[0]*dk[0] + dk[1]*dk[1] - shotnoise)*grid_cor*grid_cor;
+}
+
+void freqBinMono(fftw_complex *dk3d, double *P_0, int *N_k, int3 N, double3 L, double shotnoise, 
+                 double k_min, double k_max, int kBins, bool corr, int type) {
+    double *kx = new double[N.x];
+    double *ky = new double[N.y];
+    double *kz = new double[N.z];
+    fftfreq(kx, N.x, L.x);
+    fftfreq(ky, N.y, L.y);
+    fftfreq(kz, N.z, L.z);
+    double binWidth = (k_max - k_min)/double(kBins);
+    double3 dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
+    
+    int3 Nstop = {ceil(k_max/kx[1]), ceil(k_max/ky[1]), ceil(k_max/kz[1])};
+    for (int i = 0; i < Nstop.x; ++i) {
+        int i2 = N.x - i;
+        for (int j = 0; j < Nstop.y; ++j) {
+            int j2 = N.y - j;
+            for (int k = 0; k < Nstop.z; ++k) {
+                double k_tot = sqrt(kx[i]*kx[i] + ky[j]*ky[j] + kz[k]*kz[k]);
+                
+                if (k_tot >= k_min && k_tot <= k_max) {
+                    int bin = (k_tot - k_min)/binWidth;
+                    
+                    double grid_cor = 1.0;
+                    if (corr) {
+                        if (type == 0) grid_cor = gridCorNGP(kx[i], ky[j], kz[k], dr);
+                        if (type == 1) grid_cor = gridCorCIC(kx[i], ky[j], kz[k], dr);
+                    }
+                    
+                    if (i != 0 && j != 0) {
+                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = k + (N.z/2 + 1)*(j2 + N.y*i );
+                        int index3 = k + (N.z/2 + 1)*(j  + N.y*i2);
+                        int index4 = k + (N.z/2 + 1)*(j2 + N.y*i2);
+                        binFreq(dk3d[index1], P_0, bin, grid_cor, shotnoise);
+                        binFreq(dk3d[index2], P_0, bin, grid_cor, shotnoise);
+                        binFreq(dk3d[index3], P_0, bin, grid_cor, shotnoise);
+                        binFreq(dk3d[index4], P_0, bin, grid_cor, shotnoise);
+                        N_k[bin] += 4;
+                    } else if (i != 0 && j == 0) {
+                        int index1 = k + (N.z/2 + 1)*(j + N.y*i );
+                        int index2 = k + (N.z/2 + 1)*(j + N.y*i2);
+                        binFreq(dk3d[index1], P_0, bin, grid_cor, shotnoise);
+                        binFreq(dk3d[index2], P_0, bin, grid_cor, shotnoise);
+                        N_k[bin] += 2;
+                    } else if (i == 0 && j != 0) {
+                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i);
+                        int index2 = k + (N.z/2 + 1)*(j2 + N.y*i);
+                        binFreq(dk3d[index1], P_0, bin, grid_cor, shotnoise);
+                        binFreq(dk3d[index2], P_0, bin, grid_cor, shotnoise);
+                        N_k[bin] += 2;
+                    } else {
+                        binFreq(dk3d[k], P_0, bin, grid_cor, shotnoise);
+                        N_k[bin] += 1;
+                    }
+                }
+            }
+        }
+    }
+    delete[] kx;
+    delete[] ky;
+    delete[] kz;
+}
+                    
 
 void binFreqPP(fftw_complex dk, double *P_0, double *P_2, double *P_2shot, int bin, double mu, 
                double grid_cor, double shotnoise) {
@@ -454,6 +540,13 @@ void normalizePk(double *P_0, double *P_2, double *P_2shot, int *N_k, double gal
         P_2[i] -= P_2shot[i];
         P_2[i] /= N_k[i];
         P_2[i] /= gal_nbsqwsq;
+    }
+}
+
+void normalizePk(double *P_0, int *N_k, double gal_nbsqwsq, int N) {
+    for (int i = 0; i < N; ++i) {
+        P_0[i] /= N_k[i];
+        P_0[i] /= gal_nbsqwsq;
     }
 }
 
