@@ -208,15 +208,6 @@ int main(int argc, char *argv[]) {
     fout.close();
     delete[] N_0;
     
-    char cont;
-    std::cout << "Continue?: ";
-    std::cin >> cont;
-    if (cont == 'n') {
-        delete[] P_0;
-        delete[] dr3d;
-        return 0;
-    }
-    
     // Arrays and plans for in-place FFTs
     std::cout << "Planning more FFTs..." << std::endl;
     double *dk_i = new double[N_p];
@@ -269,7 +260,7 @@ int main(int argc, char *argv[]) {
             }
             int stop = (k_i + k_j - k_min)/delta_k;
             stop = std::min(stop, numKBins);
-            for (int l = j-i; l < stop; ++l) {
+            for (int l = j; l < stop; ++l) {
                 double k_l = k_min + (l + 0.5)*delta_k;
                 if (l != j) {
                     int k_lBin = (k_l - k_min)/delta_k;
@@ -287,7 +278,7 @@ int main(int argc, char *argv[]) {
                 for (int q = 0; q < N_r; ++q) {
                     sum += dk_i[drs[q]]*dk_j[drs[q]]*dk_l[drs[q]];
                 }
-                Btemp.val = sum;
+                Btemp.val = sum - (P_0[i] + P_0[j] + P_0[l])/nbar - 1.0/(nbar*nbar);
                 double V = V_f/(coeff*k_i*k_j*k_l*delta_k_cube);
                 Btemp.val *= V;
                 //std::cout << Btemp.k1 << ", " << Btemp.k2 << ", " << Btemp.k3 << ", " << Btemp.val << std::endl;
