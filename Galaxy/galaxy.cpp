@@ -62,15 +62,39 @@ double r2z(double r, double O_m, double O_L, double tolerance, gsl_integration_w
     return z;
 }
 
-template <typename T> double galaxy<T>::wFKP(double P_FKP) {
+template <typename T> galaxy<T>::galaxy() {
+    galaxy<T>::ra = 0.0;
+    galaxy<T>::dec = 0.0;
+    galaxy<T>::red = 0.0;
+    galaxy<T>::x = 0.0;
+    galaxy<T>::y = 0.0;
+    galaxy<T>::z = 0.0;
+    galaxy<T>::nbar = 0.0;
+    galaxy<T>::bias = 0.0;
+    galaxy<T>::w = 0.0;
+}
+
+template <typename T> galaxy<T>::galaxy(T RA, T DEC, T RED, T X, T Y, T Z, T NBAR, T BIAS, T W) {
+    galaxy<T>::ra = RA;
+    galaxy<T>::dec = DEC;
+    galaxy<T>::red = RED;
+    galaxy<T>::x = X;
+    galaxy<T>::y = Y;
+    galaxy<T>::z = Z;
+    galaxy<T>::nbar = NBAR;
+    galaxy<T>::bias = BIAS;
+    galaxy<T>::w = W;
+}
+
+template <typename T> T galaxy<T>::wFKP(T P_FKP) {
     return 1.0/(1.0 + galaxy<T>::nbar*P_FKP);
 }
 
-template <typename T> double galaxy<T>::wPVP(double P_PVP) {
+template <typename T> T galaxy<T>::wPVP(T P_PVP) {
     return galaxy<T>::bias*galaxy<T>::bias*P_PVP/(1.0 + galaxy<T>::nbar*P_PVP);
 }
 
-template <typename T> double galaxy<T>::wPSG(double P_PSG) {
+template <typename T> T galaxy<T>::wPSG(T P_PSG) {
     return 1.0;
 }
 
@@ -89,9 +113,8 @@ template <typename T> void galaxy<T>::equatorial(double Omega_M, double Omega_L,
     galaxy<T>::red = r2z(r_mag, Omega_M, Omega_L, 1E-12, w);
 }
 
-template <typename T> vec3<double> galaxy<T>::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, double P_w, int flags) {
+template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, vec3<double> &gal_nbw, double P_w, int flags) {
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
-    vec3<double> gal_nbw = {0.0, 0.0, 0.0};
     
     double w;
     if (flags & galFlags::FKP_WEIGHT) {
@@ -142,19 +165,16 @@ template <typename T> vec3<double> galaxy<T>::bin(double *nden, vec3<double> L, 
         }
     }
     
-    return gal_nbw;
 }
 
-template <typename T> vec3<double> galaxy<T>::rMax(vec3<double> r_max) {
+template <typename T> void galaxy<T>::rMax(vec3<double> &r_max) {
     if (galaxy<T>::x > r_max.x) r_max.x = galaxy<T>::x;
     if (galaxy<T>::y > r_max.y) r_max.y = galaxy<T>::y;
     if (galaxy<T>::z > r_max.z) r_max.z = galaxy<T>::z;
-    return r_max;
 }
 
-template <typename T> vec3<double> galaxy<T>::rMin(vec3<double> r_min) {
+template <typename T> void galaxy<T>::rMin(vec3<double> &r_min) {
     if (galaxy<T>::x < r_min.x) r_min.x = galaxy<T>::x;
     if (galaxy<T>::y < r_min.y) r_min.y = galaxy<T>::y;
     if (galaxy<T>::z < r_min.z) r_min.z = galaxy<T>::z;
-    return r_min;
 }
