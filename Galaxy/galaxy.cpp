@@ -62,67 +62,67 @@ double r2z(double r, double O_m, double O_L, double tolerance, gsl_integration_w
     return z;
 }
 
-double galaxy::wFKP(double P_FKP) {
-    return 1.0/(1.0 + galaxy::nbar*P_FKP);
+template <typename T> double galaxy<T>::wFKP(double P_FKP) {
+    return 1.0/(1.0 + galaxy<T>::nbar*P_FKP);
 }
 
-double galaxy::wPVP(double P_PVP) {
-    return galaxy::bias*galaxy::bias*P_PVP/(1.0 + galaxy::nbar*P_PVP);
+template <typename T> double galaxy<T>::wPVP(double P_PVP) {
+    return galaxy<T>::bias*galaxy<T>::bias*P_PVP/(1.0 + galaxy<T>::nbar*P_PVP);
 }
 
-double galaxy::wPSG(double P_PSG) {
+template <typename T> double galaxy<T>::wPSG(double P_PSG) {
     return 1.0;
 }
 
-void galaxy::cartesian(double Omega_M, double Omega_L, gsl_integration_workspace *w) {
+template <typename T> void galaxy<T>::cartesian(double Omega_M, double Omega_L, gsl_integration_workspace *w) {
     double r = rz(galaxy::red, Omega_M, Omega_L, w);
-    galaxy::x = r*cos(galaxy::dec*pi/180.0)*cos(galaxy::ra*pi/180.0);
-    galaxy::y = r*cos(galaxy::dec*pi/180.0)*cos(galaxy::ra*pi/180.0);
-    galaxy::z = r*sin(galaxy::dec*pi/180.0);
+    galaxy<T>::x = r*cos(galaxy<T>::dec*pi/180.0)*cos(galaxy<T>::ra*pi/180.0);
+    galaxy<T>::y = r*cos(galaxy<T>::dec*pi/180.0)*cos(galaxy<T>::ra*pi/180.0);
+    galaxy<T>::z = r*sin(galaxy<T>::dec*pi/180.0);
 }
 
-void galaxy::equatorial(double Omega_M, double Omega_L, gsl_integration_workspace *w) {
-    double r_mag = sqrt(galaxy::x*galaxy::x + galaxy::y*galaxy::y + galaxy::z*galaxy::z);
-    galaxy::ra = atan2(galaxy::y, galaxy::x)*(180.0*pi);
-    if (galaxy::ra < 0) galaxy::ra += 360.0;
-    galaxy::dec = atan(galaxy::z/sqrt(galaxy::x*galaxy::x + galaxy::y*galaxy::y))*(180.0*pi);
-    galaxy::red = r2z(r_mag, Omega_M, Omega_L, 1E-12, w);
+template <typename T> void galaxy<T>::equatorial(double Omega_M, double Omega_L, gsl_integration_workspace *w) {
+    double r_mag = sqrt(galaxy<T>::x*galaxy<T>::x + galaxy<T>::y*galaxy<T>::y + galaxy<T>::z*galaxy<T>::z);
+    galaxy<T>::ra = atan2(galaxy<T>::y, galaxy<T>::x)*(180.0*pi);
+    if (galaxy<T>::ra < 0) galaxy<T>::ra += 360.0;
+    galaxy<T>::dec = atan(galaxy<T>::z/sqrt(galaxy<T>::x*galaxy<T>::x + galaxy<T>::y*galaxy<T>::y))*(180.0*pi);
+    galaxy<T>::red = r2z(r_mag, Omega_M, Omega_L, 1E-12, w);
 }
 
-vec3<double> galaxy::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, double P_w, int flags) {
+template <typename T> vec3<double> galaxy<T>::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, double P_w, int flags) {
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
     vec3<double> gal_nbw = {0.0, 0.0, 0.0};
     
     double w;
     if (flags & galFlags::FKP_WEIGHT) {
-        w = galaxy::wFKP(P_w);
-        galaxy::w = w;
+        w = galaxy<T>::wFKP(P_w);
+        galaxy<T>::w = w;
     } else if (flags & galFlags::PVP_WEIGHT) {
-        w = galaxy::PVP(P_w);
-        galaxy::w = w;
+        w = galaxy<T>::PVP(P_w);
+        galaxy<T>::w = w;
     } else if (flags & galFlags::PSG_WEIGHT) {
-        w = galaxy::PSG(P_w);
-        galaxy::w = w;
+        w = galaxy<T>::PSG(P_w);
+        galaxy<T>::w = w;
     } else if (flags & galFlags::UNWEIGHTED) {
         w = 1.0;
-        galaxy::w = w;
-    } else if (flags & galFlags::INPUT_WIEGHT) {
-        w = galaxy::w;
+        galaxy<T>::w = w;
+    } else if (flags & galFlags::INPUT_WEIGHT) {
+        w = galaxy<T>::w;
     }
     
     gal_nbw.x += w;
     gal_nbw.y += w*w;
-    gal_nbw.z += galaxy::nbar*w*w;
+    gal_nbw.z += galaxy<T>::nbar*w*w;
     
     if (flags & galFlags::NGP) {
-        vec3<int> ngp = {(galaxy::x - r_min.x)/dr.x, (galaxy::y - r_min.y)/dr.y, (galaxy::z - r_min.z)/dr.z};
+        vec3<int> ngp = {(galaxy<T>::x - r_min.x)/dr.x, (galaxy<T>::y - r_min.y)/dr.y, (galaxy<T>::z - r_min.z)/dr.z};
         int index = ngp.z + N.z*(ngp.y + N.y*ngp.x);
         nden[index] += w;
     } else if (flags & galFlags::CIC) {
-        vec3<int> ngp = {(galaxy::x - r_min.x)/dr.x, (galaxy::y - r_min.y)/dr.y, (galaxy::z - r_min.z)/dr.z};
+        vec3<int> ngp = {(galaxy<T>::x - r_min.x)/dr.x, (galaxy<T>::y - r_min.y)/dr.y, (galaxy<T>::z - r_min.z)/dr.z};
         vec3<double> pos_ngp = {(ngp.x + 0.5)*dr.x + r_min.x, (ngp.y + 0.5)*dr.y + r_min.y, 
             (ngp.z + 0.5)*dr.z + r_min.z};
-        vec3<double> delr = {gals[i].x-pos_ngp.x, gals[i].y-pos_ngp.y, gals[i].z-pos_ngp.z};
+        vec3<double> delr = {galaxy<T>::x-pos_ngp.x, galaxy<T>::y-pos_ngp.y, galaxy<T>::z-pos_ngp.z};
         vec3<int> shift = {delr.x/fabs(delr.x), delr.y/fabs(delr.y), delr.z/fabs(delr.z)};
         
         int pn[2] = {-1, 1};
@@ -145,16 +145,16 @@ vec3<double> galaxy::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double>
     return gal_nbw;
 }
 
-vec3<double> galaxy::rMax(vec3<double> r_max) {
-    if (galaxy::x > r_max.x) r_max.x = galaxy::x;
-    if (galaxy::y > r_max.y) r_max.y = galaxy::y;
-    if (galaxy::z > r_max.z) r_max.z = galaxy::z;
+template <typename T> vec3<double> galaxy<T>::rMax(vec3<double> r_max) {
+    if (galaxy<T>::x > r_max.x) r_max.x = galaxy<T>::x;
+    if (galaxy<T>::y > r_max.y) r_max.y = galaxy<T>::y;
+    if (galaxy<T>::z > r_max.z) r_max.z = galaxy<T>::z;
     return r_max;
 }
 
-vec3<double> galaxy::rMin(vec3<double> r_min) {
-    if (galaxy::x < r_min.x) r_min.x = galaxy::x;
-    if (galaxy::y < r_min.y) r_min.y = galaxy::y;
-    if (galaxy::z < r_min.z) r_min.z = galaxy::z;
+template <typename T> vec3<double> galaxy<T>::rMin(vec3<double> r_min) {
+    if (galaxy<T>::x < r_min.x) r_min.x = galaxy<T>::x;
+    if (galaxy<T>::y < r_min.y) r_min.y = galaxy<T>::y;
+    if (galaxy<T>::z < r_min.z) r_min.z = galaxy<T>::z;
     return r_min;
 }

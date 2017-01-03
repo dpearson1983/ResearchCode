@@ -8,7 +8,7 @@ struct galFlags{
         FKP_WEIGHT      = 0x01,
         PVP_WEIGHT      = 0x02,
         PSG_WEIGHT      = 0x04,
-        UNWWEIGHTED     = 0x08,
+        UNWEIGHTED      = 0x08,
         INPUT_WEIGHT    = 0x10,
         NGP             = 0x20,
         CIC             = 0x40
