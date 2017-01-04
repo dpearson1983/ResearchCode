@@ -110,8 +110,13 @@ template <typename T> void powerspec<T>::disc_cor(std::string file, int flags) {
 
 template <typename T> void powerspec<T>::norm(double gal_nbsqwsq, int flags) {
     for (int i = 0; i < powerspec<T>::N; ++i) {
-        powerspec<T>::mono[i] /= (gal_nbsqwsq*N_k[i]);
-        if (flags & pkFlags::QUAD) powerspec<T>::quad[i] /= 
+        powerspec<T>::mono[i] /= (gal_nbsqwsq*powerspec<T>::N_k[i]);
+        if (flags & pkFlags::QUAD) {
+            powerspec<T>::quad[i] /= (gal_nbsqwsq*powerspec<T>::N_k[i]);
+        }
+        if (flags & pkFlags::HEXA) {
+            powerspec<T>::hexa[i] /= (gal_nbsqwsq*powerspec<T>::N_k[i]);
+        }
     }
 }
 
