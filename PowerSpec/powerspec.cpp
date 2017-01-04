@@ -100,12 +100,46 @@ template <typename T> void powerspec<T>::calc(double *dr3d, vec3<double> L,
         }
         
         if (flags & pkFlags::QUAD) {
-            calcQuad(double *dr3d, vec3<
+            // TODO: Figure out the best way of implementing this.
+            // calcQuad(double *dr3d, other parameters);
+            std::cout << "Quadrupole not currently implemented." << std::endl;
         }
+        
+        fftw_init_threads();
+        fftw_import_wisdom_from_filename(fftwWisdom.c_str());
+        fftw_plan_with_nthreads(omp_get_max_threads());
+        fftw_plan dr3d2dk3d = fftw_plan_dft_r2c_3d(N_grid.x, N_grid.y, N_grid.z, dr3d,
+                                                   (fftw_complex *)dr3d, FFTW_WISDOM_ONLY);
+        
+        fftw_execute(dr3d2dk3d);
+        fftw_destroy_plan(dr3d2dk3d);
+        
+        // Call binning function
 }
 
 template <typename T> void powerspec<T>::disc_cor(std::string file, int flags) {
-    
+    double k;
+    std::ifstream fin;
+    fin.open(file.c_str(), std::ios::in);
+    for (int i = 0; i < powerspec<T>::N; ++i) {
+        fin >> k;
+        if (flags & pkFlags::MONO) {
+            double mono_cor;
+            fin >> mono_cor;
+            powerspec<T>::mono[i] -= mono_cor;
+        }
+        if (flags & pkFlags::QUAD) {
+            double quad_cor;
+            fin >> quad_cor;
+            powerspec<T>::quad[i] -= quad_cor;
+        }
+        if (flags & pkFlags::HEXA) {
+            double hexa_cor;
+            fin >> hexa_cor;
+            powerspec<T>::hexa[i] -= hexa_cor;
+        }
+    }
+    fin.close();
 }
 
 template <typename T> void powerspec<T>::norm(double gal_nbsqwsq, int flags) {
