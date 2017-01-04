@@ -1,4 +1,5 @@
 /* galaxy.cpp v1.0
+ * David W. Pearson
  * December 29, 2016
  * 
  * LICENSE: GPL v3

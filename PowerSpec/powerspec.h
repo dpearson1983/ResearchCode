@@ -8,35 +8,37 @@
 
 struct pkFlags{
     enum value{
-        MONO        = 0x001,
-        QUAD_FF     = 0x002,
-        QUAD_BS     = 0x004,
-        HEXA_FF     = 0x008,
-        HEXA_BS     = 0x010,
-        GRID_COR    = 0x020,
-        NGP         = 0x040,
-        CIC         = 0x080,
-        LIST        = 0x100,
-        TABLE       = 0x200,
-        HEADER      = 0x400
+        MONO         =   0x1,
+        QUAD         =   0x2,
+        HEXA         =   0x4,
+        FF           =   0x8,
+        BS           =  0x10,
+        GRID_COR     =  0x20,
+        NGP          =  0x40,
+        CIC          =  0x80,
+        LIST         = 0x100,
+        TABLE        = 0x200,
+        HEADER       = 0x400,
+        OUT_OF_PLACE = 0x800
     };
 };
 
 template <typename T> class powerspec{
-    std::vector<T> mono, quad, hexa, k;
-    int N;
+    std::vector<T> mono, quad, hexa, k; // Storage for multipoles and frequencies
+    std::vector<int> N_k; // Storage for number of frequencies in each bin
+    int N; // Number of frequency bins
     
     public:
-        powerspec();
+        powerspec(); // Need to add setter functions for when this is invoked
         
-        powerspec(int numKVals);
+        powerspec(int numKVals, vec2<double> k_lim, int flags = 0);
         
-        void calc(fftw_complex *dk3d, vec3<double> L, vec2<double> k_lim, double shotnoise, 
-                  int flags);
+        void calc(double *dr3d, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim, 
+                  double shotnoise, std::string fftwWisdom, int flags);
         
         void disc_cor(std::string file, int flags);
         
-        void norm(double gal_nbsqwsq);
+        void norm(double gal_nbsqwsq, int flags);
         
         void print(int flags);
         
