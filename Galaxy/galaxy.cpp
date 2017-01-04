@@ -20,6 +20,7 @@
 #include <cmath>
 #include <constants.h>
 #include <gsl/gsl_integration.h>
+#include <tpods.h>
 #include "galaxy.h"
 
 struct intparams{

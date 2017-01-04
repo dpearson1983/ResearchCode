@@ -5,6 +5,7 @@
 #include <cmath>
 #include <constants.h>
 #include <gsl/gsl_integration.h>
+#include <tpods.h>
 
 struct galFlags{
     enum value{
@@ -16,10 +17,6 @@ struct galFlags{
         NGP             = 0x20,
         CIC             = 0x40
     };
-};        
-
-template <typename T> struct vec3{
-    T x, y, z;
 };
 
 template <typename T> class galaxy{
