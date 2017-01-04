@@ -19,6 +19,7 @@
 #include <iostream>
 #include <cmath>
 #include <constants.h>
+#include <gsl/gsl_integration.h>
 #include "galaxy.h"
 
 struct intparams{
@@ -121,10 +122,10 @@ template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int
         w = galaxy<T>::wFKP(P_w);
         galaxy<T>::w = w;
     } else if (flags & galFlags::PVP_WEIGHT) {
-        w = galaxy<T>::PVP(P_w);
+        w = galaxy<T>::wPVP(P_w);
         galaxy<T>::w = w;
     } else if (flags & galFlags::PSG_WEIGHT) {
-        w = galaxy<T>::PSG(P_w);
+        w = galaxy<T>::wPSG(P_w);
         galaxy<T>::w = w;
     } else if (flags & galFlags::UNWEIGHTED) {
         w = 1.0;
@@ -178,3 +179,6 @@ template <typename T> void galaxy<T>::rMin(vec3<double> &r_min) {
     if (galaxy<T>::y < r_min.y) r_min.y = galaxy<T>::y;
     if (galaxy<T>::z < r_min.z) r_min.z = galaxy<T>::z;
 }
+
+template class galaxy<double>;
+template class galaxy<float>;

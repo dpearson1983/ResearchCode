@@ -6,4 +6,4 @@ localinstall: galaxy.cpp
 	mkdir -p $(HOME)/include
 	mkdir -p $(HOME)/lib
 	cp galaxy.h $(HOME)/include/
-	$(CXX) $(CXXFLAGS) -c -o $(HOME)/lib/libgalaxy.a galaxy.cpp
+	$(CXX) $(CXXFLAGS) -w -c -o $(HOME)/lib/libgalaxy.a galaxy.cpp

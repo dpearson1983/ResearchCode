@@ -1,6 +1,9 @@
 #ifndef _GALAXY_H_
 #define _GALAXY_H_
 
+#include <iostream>
+#include <cmath>
+#include <constants.h>
 #include <gsl/gsl_integration.h>
 
 struct galFlags{
@@ -44,7 +47,5 @@ template <typename T> class galaxy{
         void rMin(vec3<double> &r_min);
         
 };
-
-
         
 #endif
