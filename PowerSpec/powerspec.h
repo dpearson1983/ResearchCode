@@ -28,6 +28,11 @@ template <typename T> class powerspec{
     std::vector<int> N_k; // Storage for number of frequencies in each bin
     int N; // Number of frequency bins
     
+    void binFreq(fftw_complex A_0, int bin, double grid_cor, double shotnoise);
+    
+    void freqBin(fftw_complex *A_0, vec3<double> L, vec3<int> N, double shotnoise, 
+                 vec2<double> k_lim, int flags);
+    
     public:
         powerspec(); // Need to add setter functions for when this is invoked
         

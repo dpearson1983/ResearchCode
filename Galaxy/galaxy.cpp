@@ -104,7 +104,7 @@ template <typename T> T galaxy<T>::wPSG(T P_PSG) {
 template <typename T> void galaxy<T>::cartesian(double Omega_M, double Omega_L, gsl_integration_workspace *w) {
     double r = rz(galaxy::red, Omega_M, Omega_L, w);
     galaxy<T>::x = r*cos(galaxy<T>::dec*pi/180.0)*cos(galaxy<T>::ra*pi/180.0);
-    galaxy<T>::y = r*cos(galaxy<T>::dec*pi/180.0)*cos(galaxy<T>::ra*pi/180.0);
+    galaxy<T>::y = r*cos(galaxy<T>::dec*pi/180.0)*sin(galaxy<T>::ra*pi/180.0);
     galaxy<T>::z = r*sin(galaxy<T>::dec*pi/180.0);
 }
 

@@ -19,11 +19,14 @@
 
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <limits>
 #include <cmath>
 #include <vector>
 #include <fftw3.h>
 #include <omp.h>
 #include <tpods.h>
+#include <constants.h>
 #include "powerspec.h"
 
 void fftfreq(double *kvec, int N, double L) {
@@ -62,6 +65,95 @@ void generateWisdom(vec3<int> N, std::string fftwWisdom, int flags) {
         fftw_plan test = fftw_plan_dft_r2c_3d(N.x, N.y, N.z, in, (fftw_complex *)in, 
                                               FFTW_MEASURE);
         fftw_export_wisdom_to_filename(fftwWisdom.c_str());
+    }
+}
+
+void transformDelta(double *dr3d, fftw_complex *dk3d, std::string fftwWisdom, vec3<int> N) {
+    fftw_init_threads();
+    fftw_plan_with_nthreads(omp_get_max_threads());
+    fftw_import_wisdom_from_filename(fftwWisdom.c_str());
+    fftw_plan dr3d2dk3d = fftw_plan_dft_r2c_3d(N.x, N.y, N.z, dr3d, dk3d, FFTW_WISDOM_ONLY);
+    fftw_execute(dr3d2dk3d);
+    fftw_destroy_plan(dr3d2dk3d);
+}
+
+void transformDelta(double *dr3d, std::string fftwWisdom, vec3<int> N) {
+    fftw_init_threads();
+    fftw_plan_with_nthreads(omp_get_max_threads());
+    fftw_import_wisdom_from_filename(fftwWisdom.c_str());
+    fftw_plan dr3d2dk3d = fftw_plan_dft_r2c_3d(N.x, N.y, N.z, dr3d, (fftw_complex *)dr3d,
+                                               FFTW_WISDOM_ONLY);
+    fftw_execute(dr3d2dk3d);
+    fftw_destroy_plan(dr3d2dk3d);
+}
+
+template <typename T> void powerspec<T>::binFreq(fftw_complex A_0, int bin, double grid_cor, double shotnoise) {
+    powerspec<T>::mono[bin] += (A_0[0]*A_0[0] + A_0[1]*A_0[1] - shotnoise)*grid_cor*grid_cor;
+}
+
+template <typename T> void powerspec<T>::freqBin(fftw_complex *A_0, vec3<double> L, vec3<int> N, double shotnoise, 
+             vec2<double> k_lim, int flags) {
+    double *kx = new double[N.x];
+    double *ky = new double[N.y];
+    double *kz = new double[N.z];
+    fftfreq(kx, N.x, L.x);
+    fftfreq(ky, N.y, L.y);
+    fftfreq(kz, N.z, L.z);
+    double binWidth = (k_lim.y - k_lim.x)/double(powerspec<T>::N);
+    vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
+    vec3<int> Nstop = {ceil(k_lim.y/kx[1]), ceil(k_lim.y/ky[1]), ceil(k_lim.y/kz[1])};
+    
+    for (int i = 0; i < Nstop.x; ++i) {
+        int i2 = N.x - i;
+        for (int j = 0; j < Nstop.y; ++j) {
+            int j2 = N.y - j;
+            for (int k = 0; k < Nstop.z; ++k) {
+                double k_tot = sqrt(kx[i]*kx[i] + ky[j]*ky[j] + kz[k]*kz[k]);
+                
+                if (k_tot >= k_lim.x && k_tot <= k_lim.y) {
+                    int bin = (k_tot - k_lim.x)/binWidth;
+                    double grid_cor = 1.0;
+                    if (flags & pkFlags::GRID_COR) {
+                        vec3<double> kvec = {kx[i], ky[j], kz[k]};
+                        grid_cor = gridCor(kvec, dr, flags);
+                    }
+                    
+                    if (i != 0 && j != 0) {
+                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = k + (N.z/2 + 1)*(j2 + N.y*i );
+                        int index3 = k + (N.z/2 + 1)*(j  + N.y*i2);
+                        int index4 = k + (N.z/2 + 1)*(j2 + N.y*i2);
+                        binFreq(A_0[index1], bin, grid_cor, shotnoise);
+                        binFreq(A_0[index2], bin, grid_cor, shotnoise);
+                        binFreq(A_0[index3], bin, grid_cor, shotnoise);
+                        binFreq(A_0[index4], bin, grid_cor, shotnoise);
+                        powerspec<T>::N_k[bin] += 4;
+                    } else if (i != 0 && j == 0) {
+                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = k + (N.z/2 + 1)*(j  + N.y*i2);
+                        binFreq(A_0[index1], bin, grid_cor, shotnoise);
+                        binFreq(A_0[index2], bin, grid_cor, shotnoise);
+                        powerspec<T>::N_k[bin] += 2;
+                    } else if (i == 0 && j != 0) {
+                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = k + (N.z/2 + 1)*(j2 + N.y*i );
+                        binFreq(A_0[index1], bin, grid_cor, shotnoise);
+                        binFreq(A_0[index2], bin, grid_cor, shotnoise);
+                        powerspec<T>::N_k[bin] += 2;
+                    } else {
+                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
+                        binFreq(A_0[index1], bin, grid_cor, shotnoise);
+                        powerspec<T>::N_k[bin] += 1;
+                    }
+                }
+            }
+        }
+    }
+    
+    delete[] kx;
+    delete[] ky;
+    delete[] kz;
+}
 
 template <typename T> powerspec<T>::powerspec() {
     powerspec<T>::N = 1;
@@ -72,17 +164,12 @@ template <typename T> powerspec<T>::powerspec() {
 // whether or not to setup for the calculation of the quadrupole and/or hexadecapole.
 template <typename T> powerspec<T>::powerspec(int numKVals, vec2<double> k_lim, int flags) {
     double dk = (k_lim.y - k_lim.x)/double(numKVals);
-    powerspec<T>::k.reserve(numKVals);
-    powerspec<T>::N_k.reserve(numKVals);
-    powerspec<T>::mono.reserve(numKVals);
-    if (flags & pkFlags::QUAD) powerspec<T>::quad.reserve(numKVals);
-    if (flags & pkFlags::HEXA) powerspec<T>::hexa.reserve(numKVals);
     for (int i = 0; i < numKVals; ++i) {
-        powerspec<T>::k[i] = k_lim.x + (i + 0.5)*dk;
-        powerspec<T>::mono[i] = 0.0;
-        powerspec<T>::N_k[i] = 0;
-        if (flags & pkFlags::QUAD) powerspec<T>::quad[i] = 0.0;
-        if (flags & pkFlags::HEXA) powerspec<T>::hexa[i] = 0.0;
+        powerspec<T>::k.push_back(k_lim.x + (i + 0.5)*dk);
+        powerspec<T>::mono.push_back(0.0);
+        powerspec<T>::N_k.push_back(0);
+        if (flags & pkFlags::QUAD) powerspec<T>::quad.push_back(0.0);
+        if (flags & pkFlags::HEXA) powerspec<T>::hexa.push_back(0.0);
     }
 }
 
@@ -105,16 +192,25 @@ template <typename T> void powerspec<T>::calc(double *dr3d, vec3<double> L,
             std::cout << "Quadrupole not currently implemented." << std::endl;
         }
         
-        fftw_init_threads();
-        fftw_import_wisdom_from_filename(fftwWisdom.c_str());
-        fftw_plan_with_nthreads(omp_get_max_threads());
-        fftw_plan dr3d2dk3d = fftw_plan_dft_r2c_3d(N_grid.x, N_grid.y, N_grid.z, dr3d,
-                                                   (fftw_complex *)dr3d, FFTW_WISDOM_ONLY);
+        transformDelta(dr3d, fftwWisdom, N_grid);
+        powerspec<T>::freqBin((fftw_complex *)dr3d, L, N_grid, shotnoise, k_lim, flags);
+    } else {
+        if (flags & pkFlags::HEXA) {
+            std::cout << "Hexadecapole not currently implemented." << std::endl;
+        }
         
-        fftw_execute(dr3d2dk3d);
-        fftw_destroy_plan(dr3d2dk3d);
+        if (flags & pkFlags::QUAD) {
+            // TODO: Figure out the best way of implementing this.
+            // calcQuad(double *dr3d, other parameters);
+            std::cout << "Quadrupole not currently implemented." << std::endl;
+        }
         
+        fftw_complex *dk3d = new fftw_complex[N_grid.x*N_grid.y*(N_grid.z/2 + 1)];
+        transformDelta(dr3d, dk3d, fftwWisdom, N_grid);
         // Call binning function
+        powerspec<T>::freqBin(dk3d, L, N_grid, shotnoise, k_lim, flags);
+        delete[] dk3d;
+    }
 }
 
 template <typename T> void powerspec<T>::disc_cor(std::string file, int flags) {
@@ -177,7 +273,22 @@ template <typename T> void powerspec<T>::print() {
 }
 
 template <typename T> void write(std::string file, int flags) {
-    
+    std::ofstream fout;
+    fout.open(file.c_str(), std::ios::out);
+    for (int i = 0; i < powerspec<T>::N; ++i) {
+        fout << powerspec<T>::k[i] << " " << powerspec<T>::mono[i] << "\n";
+    }
+    if (flags & pkFlags::QUAD) {
+        for (int i = 0; i < powerspec<T>::N; ++i) {
+            fout << powerspec<T>::k[i] << " " << powerspec<T>::quad[i] << "\n";
+        }
+    }
+    if (flags & pkFlags::HEXA) {
+        for (int i = 0; i < powerspec<T>::N; ++i) {
+            fout << powerspec<T>::k[i] << " " << powerspec<T>::hexa[i] << "\n";
+        }
+    }
+    fout.close();
 }
 
 template class powerspec<double>;
