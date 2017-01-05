@@ -49,7 +49,7 @@ template <typename T> class powerspec{
         
         void print();
         
-        void write(std::string file, int flags);
+        void writeFile(std::string file, int flags);
         
 };
 

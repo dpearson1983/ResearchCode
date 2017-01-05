@@ -87,61 +87,93 @@ void transformDelta(double *dr3d, std::string fftwWisdom, vec3<int> N) {
     fftw_destroy_plan(dr3d2dk3d);
 }
 
-template <typename T> void powerspec<T>::binFreq(fftw_complex A_0, int bin, double grid_cor, double shotnoise) {
+template <typename T> void powerspec<T>::binFreq(fftw_complex A_0, int bin, double grid_cor, 
+                                                 double shotnoise) {
     powerspec<T>::mono[bin] += (A_0[0]*A_0[0] + A_0[1]*A_0[1] - shotnoise)*grid_cor*grid_cor;
 }
 
-template <typename T> void powerspec<T>::freqBin(fftw_complex *A_0, vec3<double> L, vec3<int> N, double shotnoise, 
-             vec2<double> k_lim, int flags) {
+template <typename T> void powerspec<T>::freqBin(fftw_complex *A_0, vec3<double> L, 
+                                                 vec3<int> N, double shotnoise, 
+                                                 vec2<double> k_lim, int flags) {
     double *kx = new double[N.x];
     double *ky = new double[N.y];
     double *kz = new double[N.z];
     fftfreq(kx, N.x, L.x);
     fftfreq(ky, N.y, L.y);
     fftfreq(kz, N.z, L.z);
+    int maxInd = N.x*N.y*(N.z/2 + 1);
     double binWidth = (k_lim.y - k_lim.x)/double(powerspec<T>::N);
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
     vec3<int> Nstop = {ceil(k_lim.y/kx[1]), ceil(k_lim.y/ky[1]), ceil(k_lim.y/kz[1])};
-    
+    std::cout << Nstop.x << " " << Nstop.y << " " << Nstop.z << std::endl;
     for (int i = 0; i < Nstop.x; ++i) {
         int i2 = N.x - i;
         for (int j = 0; j < Nstop.y; ++j) {
             int j2 = N.y - j;
-            for (int k = 0; k < Nstop.z; ++k) {
-                double k_tot = sqrt(kx[i]*kx[i] + ky[j]*ky[j] + kz[k]*kz[k]);
+            for (int l = 0; l < Nstop.z; ++l) {
+                double k_tot = sqrt(kx[i]*kx[i] + ky[j]*ky[j] + kz[l]*kz[l]);
                 
                 if (k_tot >= k_lim.x && k_tot <= k_lim.y) {
                     int bin = (k_tot - k_lim.x)/binWidth;
+                    if (bin >= powerspec<T>::N) {
+                        std::cout << "ERROR: bin out of range." << std::endl;
+                        std::cout << "    bin = " << bin << std::endl;
+                    }
                     double grid_cor = 1.0;
                     if (flags & pkFlags::GRID_COR) {
-                        vec3<double> kvec = {kx[i], ky[j], kz[k]};
+                        vec3<double> kvec = {kx[i], ky[j], kz[l]};
                         grid_cor = gridCor(kvec, dr, flags);
                     }
                     
                     if (i != 0 && j != 0) {
-                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
-                        int index2 = k + (N.z/2 + 1)*(j2 + N.y*i );
-                        int index3 = k + (N.z/2 + 1)*(j  + N.y*i2);
-                        int index4 = k + (N.z/2 + 1)*(j2 + N.y*i2);
+                        int index1 = l + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = l + (N.z/2 + 1)*(j2 + N.y*i );
+                        int index3 = l + (N.z/2 + 1)*(j  + N.y*i2);
+                        int index4 = l + (N.z/2 + 1)*(j2 + N.y*i2);
+                        if (index1 >= maxInd || index2 >= maxInd || index3 >= maxInd || index4 >= maxInd) {
+                            std::cout << "ERROR: An index is out of range." << std::endl;
+                            std::cout << "    maxInd = " << maxInd << std::endl;
+                            std::cout << "    index1 = " << index1 << std::endl;
+                            std::cout << "    index2 = " << index2 << std::endl;
+                            std::cout << "    index3 = " << index3 << std::endl;
+                            std::cout << "    index4 = " << index4 << std::endl;
+                        }
                         binFreq(A_0[index1], bin, grid_cor, shotnoise);
                         binFreq(A_0[index2], bin, grid_cor, shotnoise);
                         binFreq(A_0[index3], bin, grid_cor, shotnoise);
                         binFreq(A_0[index4], bin, grid_cor, shotnoise);
                         powerspec<T>::N_k[bin] += 4;
                     } else if (i != 0 && j == 0) {
-                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
-                        int index2 = k + (N.z/2 + 1)*(j  + N.y*i2);
+                        int index1 = l + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = l + (N.z/2 + 1)*(j  + N.y*i2);
+                        if (index1 >= maxInd || index2 >= maxInd) {
+                            std::cout << "ERROR: An index is out of range." << std::endl;
+                            std::cout << "    maxInd = " << maxInd << std::endl;
+                            std::cout << "    index1 = " << index1 << std::endl;
+                            std::cout << "    index2 = " << index2 << std::endl;
+                        }
                         binFreq(A_0[index1], bin, grid_cor, shotnoise);
                         binFreq(A_0[index2], bin, grid_cor, shotnoise);
                         powerspec<T>::N_k[bin] += 2;
                     } else if (i == 0 && j != 0) {
-                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
-                        int index2 = k + (N.z/2 + 1)*(j2 + N.y*i );
+                        int index1 = l + (N.z/2 + 1)*(j  + N.y*i );
+                        int index2 = l + (N.z/2 + 1)*(j2 + N.y*i );
+                        if (index1 >= maxInd || index2 >= maxInd) {
+                            std::cout << "ERROR: An index is out of range." << std::endl;
+                            std::cout << "    maxInd = " << maxInd << std::endl;
+                            std::cout << "    index1 = " << index1 << std::endl;
+                            std::cout << "    index2 = " << index2 << std::endl;
+                        }
                         binFreq(A_0[index1], bin, grid_cor, shotnoise);
                         binFreq(A_0[index2], bin, grid_cor, shotnoise);
                         powerspec<T>::N_k[bin] += 2;
                     } else {
-                        int index1 = k + (N.z/2 + 1)*(j  + N.y*i );
+                        int index1 = l + (N.z/2 + 1)*(j  + N.y*i );
+                        if (index1 >= maxInd) {
+                            std::cout << "ERROR: An index is out of range." << std::endl;
+                            std::cout << "    maxInd = " << maxInd << std::endl;
+                            std::cout << "    index1 = " << index1 << std::endl;
+                        }
                         binFreq(A_0[index1], bin, grid_cor, shotnoise);
                         powerspec<T>::N_k[bin] += 1;
                     }
@@ -164,12 +196,18 @@ template <typename T> powerspec<T>::powerspec() {
 // whether or not to setup for the calculation of the quadrupole and/or hexadecapole.
 template <typename T> powerspec<T>::powerspec(int numKVals, vec2<double> k_lim, int flags) {
     double dk = (k_lim.y - k_lim.x)/double(numKVals);
+    powerspec<T>::N = numKVals;
+    powerspec<T>::k.reserve(numKVals);
+    powerspec<T>::mono.reserve(numKVals);
+    powerspec<T>::N_k.reserve(numKVals);
+    powerspec<T>::quad.reserve(numKVals);
+    powerspec<T>::hexa.reserve(numKVals);
     for (int i = 0; i < numKVals; ++i) {
         powerspec<T>::k.push_back(k_lim.x + (i + 0.5)*dk);
         powerspec<T>::mono.push_back(0.0);
         powerspec<T>::N_k.push_back(0);
-        if (flags & pkFlags::QUAD) powerspec<T>::quad.push_back(0.0);
-        if (flags & pkFlags::HEXA) powerspec<T>::hexa.push_back(0.0);
+        powerspec<T>::quad.push_back(0.0);
+        powerspec<T>::hexa.push_back(0.0);
     }
 }
 
@@ -177,6 +215,7 @@ template <typename T> void powerspec<T>::calc(double *dr3d, vec3<double> L,
                                          vec3<int> N_grid, vec2<double> k_lim, 
                                          double shotnoise, std::string fftwWisdom, 
                                          int flags) {
+    std::cout << "Generating wisdom..." << std::endl;
     generateWisdom(N_grid, fftwWisdom, flags);
     bool inPlace = true;
     if (flags & pkFlags::OUT_OF_PLACE) inPlace = false;
@@ -192,7 +231,9 @@ template <typename T> void powerspec<T>::calc(double *dr3d, vec3<double> L,
             std::cout << "Quadrupole not currently implemented." << std::endl;
         }
         
+        std::cout << "Transforming delta..." << std::endl;
         transformDelta(dr3d, fftwWisdom, N_grid);
+        std::cout << "Binning frequencies..." << std::endl;
         powerspec<T>::freqBin((fftw_complex *)dr3d, L, N_grid, shotnoise, k_lim, flags);
     } else {
         if (flags & pkFlags::HEXA) {
@@ -206,8 +247,10 @@ template <typename T> void powerspec<T>::calc(double *dr3d, vec3<double> L,
         }
         
         fftw_complex *dk3d = new fftw_complex[N_grid.x*N_grid.y*(N_grid.z/2 + 1)];
+        std::cout << "Transforming delta..." << std::endl;
         transformDelta(dr3d, dk3d, fftwWisdom, N_grid);
         // Call binning function
+        std::cout << "Binning frequencies..." << std::endl;
         powerspec<T>::freqBin(dk3d, L, N_grid, shotnoise, k_lim, flags);
         delete[] dk3d;
     }
@@ -240,6 +283,7 @@ template <typename T> void powerspec<T>::disc_cor(std::string file, int flags) {
 
 template <typename T> void powerspec<T>::norm(double gal_nbsqwsq, int flags) {
     for (int i = 0; i < powerspec<T>::N; ++i) {
+        std::cout << gal_nbsqwsq << " " << powerspec<T>::N_k[i] << std::endl;
         powerspec<T>::mono[i] /= (gal_nbsqwsq*powerspec<T>::N_k[i]);
         if (flags & pkFlags::QUAD) {
             powerspec<T>::quad[i] /= (gal_nbsqwsq*powerspec<T>::N_k[i]);
@@ -272,7 +316,7 @@ template <typename T> void powerspec<T>::print() {
     powerspec<T>::print(pkFlags::HEADER|pkFlags::MONO);
 }
 
-template <typename T> void write(std::string file, int flags) {
+template <typename T> void powerspec<T>::writeFile(std::string file, int flags) {
     std::ofstream fout;
     fout.open(file.c_str(), std::ios::out);
     for (int i = 0; i < powerspec<T>::N; ++i) {

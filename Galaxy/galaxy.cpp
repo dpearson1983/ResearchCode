@@ -151,21 +151,29 @@ template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int
         vec3<double> delr = {galaxy<T>::x-pos_ngp.x, galaxy<T>::y-pos_ngp.y, galaxy<T>::z-pos_ngp.z};
         vec3<int> shift = {delr.x/fabs(delr.x), delr.y/fabs(delr.y), delr.z/fabs(delr.z)};
         
-        int pn[2] = {-1, 1};
-        double V_tot = dr.x*dr.y*dr.z;
-        for (int i = 0; i < 2; ++i) {
-            double Lx = (1-i)*dr.x + pn[i]*fabs(delr.x);
-            for (int j = 0; j < 2; ++j) {
-                double Ly = (1-j)*dr.y + pn[j]*fabs(delr.y);
-                for (int k = 0; k < 2; ++k) {
-                    double Lz = (1-k)*dr.z + pn[k]*fabs(delr.z);
-                    
-                    double V = Lx*Ly*Lz;
-                    long int index = (ngp.z + k*shift.z) + N.z*((ngp.y + j*shift.y) + N.y*(ngp.x + i*shift.x));
-                    nden[index] += V/V_tot;
-                }
-            }
-        }
+        delr.x = fabs(delr.x);
+        delr.y = fabs(delr.y);
+        delr.z = fabs(delr.z);
+        
+        double V = 1.0/(dr.x*dr.y*dr.z);
+        double V1 = delr.x*delr.y*delr.z*V;
+        double V2 = (dr.x - delr.x)*delr.y*delr.z*V;
+        double V3 = delr.x*(dr.y - delr.y)*delr.z*V;
+        double V4 = delr.y*delr.y*(dr.z - delr.z)*V;
+        double V5 = (dr.x - delr.x)*(dr.y - delr.y)*delr.z*V;
+        double V6 = (dr.x - delr.x)*delr.y*(dr.z - delr.z)*V;
+        double V7 = delr.x*(dr.y - delr.y)*(dr.z - delr.z)*V;
+        double V8 = (dr.x - delr.x)*(dr.y - delr.y)*(dr.z - delr.z)*V;
+        
+        int index = ngp.z + N.z*(ngp.y + N.y*ngp.x);
+        nden[index] += V8*w;
+        nden[index + shift.x*N.z*N.y] += V7*w;
+        nden[index + shift.y*N.z] += V6*w;
+        nden[index + shift.z] += V5*w;
+        nden[index + shift.y*N.z + shift.x*N.z*N.y] += V4*w;
+        nden[index + shift.z + shift.x*N.z*N.y] += V3*w;
+        nden[index + shift.z + shift.y*N.z] += V2*w;
+        nden[index + shift.z + shift.y*N.z + shift.x*N.z*N.y] += V1*w;
     }
     
 }
