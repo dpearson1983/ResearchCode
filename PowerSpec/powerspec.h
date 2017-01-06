@@ -51,6 +51,8 @@ template <typename T> class powerspec{
         
         void writeFile(std::string file, int flags);
         
+        T get(int index, int flags);
+        
 };
 
 #endif

@@ -335,5 +335,11 @@ template <typename T> void powerspec<T>::writeFile(std::string file, int flags) 
     fout.close();
 }
 
+template <typename T> T powerspec<T>::get(int index, int flags) {
+    if (flags & pkFlags::MONO) return powerspec<T>::mono[index];
+    if (flags & pkFlags::QUAD) return powerspec<T>::quad[index];
+    if (flags & pkFlags::HEXA) return powerspec<T>::hexa[index];
+}
+
 template class powerspec<double>;
 template class powerspec<float>;

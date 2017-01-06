@@ -21,34 +21,34 @@ template <typename T> class bispec{
     std::vector<int> drs, kbins;
     int N;
     
-    void get_shell(double *dk3d, double *dk3d_shell, int N_p, int kBin);
+    void get_shell(double *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
     
-    void get_shell(fftw_complex *dk3d, double *dk3d_shell, int N_p, int kBin);
+    void get_shell(fftw_complex *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
     
     void getks(int numKVals, vec2<double> k_lim);
+    
+    void mapdrs(vec3<int> N_grid, int flags);
+        
+    void mapkbins(vec3<int> N_grid, vec3<double> dk, vec2<double> k_lim, int flags);
     
     public:
         
         bispec();
         
-        bispec(int numKVals, vec2<double> k_lim, int flags = 0);
+        bispec(int numKVals, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim, 
+               int flags = 0);
         
-        void calc(double *dk3d, vec3<int> N_grid, std::string fftwWisdom);
+        void calc(double *dk3d, vec3<int> N_grid, vec2<double> k_lim, double V_f,
+                  std::string fftwWisdom, powerspec<T> Pk, double nbar);
         
-        // Not yet implemented. Intended for use with out of place transforms of delta field
-        void calc(fftw_complex *dk3d, vec3<int> N_grid, std::string fftwWisdom);
-        
-        void mapdrs(vec3<int> N_grid, int flags);
-        
-        void mapkbins(vec3<int> N_grid, vec2<double> k_lim, int flags);
-        
-        void setdrs(int index);
+        void calc(fftw_complex *dk3d, vec3<int> N_grid, vec2<double> k_lim, double V_f,
+                  std::string fftwWisdom, powerspec<T> Pk, double nbar);
         
         void norm();
         
-        void print(int flags);
+        void print();
         
-        void write(std::sting file, int flags);
+        void write(std::string file);
         
 };
 

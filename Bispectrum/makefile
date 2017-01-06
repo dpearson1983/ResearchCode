@@ -1,8 +1,10 @@
-CXX=g++ -std=c++14
-CXXFLAGS= -march=native -mtune=native -w -O3
-LDLIBS= -lharppi -lpfunk -lfileFuncs -lfftw3 -lfftw3_omp -lgsl -lgslcblas -fopenmp
-DEPS=$(HOME)/ResearchCode/PowerSpecCalc/pfunk.h $(HOME)/ResearchCode/file/fileFuncs.h $(HOME)/ResearchCode/HARPPI/harppi.h
+CXX = g++ -std=c++14
+CXXFLAGS = -march=native -mtune=native -w -O3
+LDLIBS = -lpowerspec -lfftw3 -lfftw3_omp -fopenmp
+DEPS = bispec.h $(HOME)/include/tpods.h $(HOME)/include/constants.h $(HOME)/include/powerspec.h
 
-localinstall: bispectrum.cpp
-	mkdir -p $(HOME)/bin
-	$(CXX) $(CXXFLAGS) $(LDLIBS) -o $(HOME)/bin/bispectrum bispectrum.cpp
+localinstall: bispec.cpp
+	mkdir -p $(HOME)/include
+	mkdir -p $(HOME)/lib
+	cp bispec.h $(HOME)/include/
+	$(CXX) $(CXXFLAGS) $(LDLIBS) -c -o $(HOME)/lib/libbispec.a bispec.cpp
