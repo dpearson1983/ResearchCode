@@ -28,6 +28,35 @@
 #include <constants.h>
 #include "bispec.h"
 
+template <typename T> void bispec<T>::get_shell(double *dk3d, double *dk3d_shell, int N_p, 
+                                                int kBin) {
+    for (int i = 0; i < N_p; ++i) {
+        if (bispec<T>::kbins[i] == kBin) dk3d_shell[i] = dk3d[i];
+        else dk3d_shell[i] = 0.0;
+    }
+}
+
+template <typename T> void bispec<T>::get_shell(fftw_complex *dk3d, double *dk3d_shell, 
+                                                vec3<int. N_grid, int kBin) {
+    for (int i = 0; i < N_grid.x; ++i) {
+        for (int j = 0; j < N_grid.y; ++j) {
+            for (int k = 0; k <= N_grid.z/2; ++k) {
+                int index1 = k + (N_grid.z/2 + 1)*(j + N_grid.y*i);
+                int index2 = (2*k    ) + 2*(N_grid.z/2 + 1)*(j + N_grid.y*i);
+                int index3 = (2*k + 1) + 2*(N_grid.z/2 + 1)*(j + N_grid.y*i);
+                
+                if (bispec<T>::kbins[index2] == kBin && bispec<T>::kbins[index3] == kBin) {
+                    dk3d_shell[index2] = dk3d[index1][0];
+                    dk3d_shell[index3] = dk3d[index1][1];
+                } else {
+                    dk3d_shell[index2] = 0.0;
+                    dk3d_shell[index3] = 0.0;
+                }
+            }
+        }
+    }
+}
+
 template <typename T> bispec<T>::getks(int numKVals, vec2<double> k_lim) {
     double dk = (k_lim.y - l_lim.x)/double(numKVals);
     int count = 0;
@@ -55,7 +84,46 @@ template <typename T> bispec<T>::bispec(int numKVals, vec2<double> k_lim, int fl
     bispec<T>::getks(numKVals, k_lim);
 }
 
-template <typename T> bispec<T>::calc(fftw_complex *dk3d) {
+template <typename T> bispec<T>::calc(double *dk3d, vec3<int> N_grid, std::string fftwWisdom) {
+    int N_p = N_grid.x*N_grid.y*2*(N_grid.z/2 + 1);
+    
+    double *dk_i = new double[N_p];
+    double *dk_j = new double[N_p];
+    double *dk_l = new double[N_p];
+    
+    fftw_init_threads();
+    fftw_plan_with_nthread(omp_get_max_threads());
+    fftw_import_wisdom_from_filename(fftwWisdom.c_str());
+    fftw_plan dki2dri = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
+                                             (fftw_complex *)dk_i, dk_i, FFTW_MEASURE);
+    fftw_plan dkj2drj = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
+                                             (fftw_complex *)dk_j, dk_j, FFTW_MEASURE);
+    fftw_plan dkl2drl = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
+                                             (fftw_complex *)dk_l, dk_l, FFTW_MEASURE);
+    fftw_export_wisdom_to_filename(fftwWisdom.c_str());
+    
+    
+}
+
+template <typename T> bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid, 
+                                      std::string fftwWisdom) {
+    int N_p = N_grid.x*N_grid.y*2*(N_grid.z/2 + 1);
+    int N_k = N_grid.x*N_grid.y*(N_grid.z/2 + 1);
+    
+    double *dk_i = new double[N_p];
+    double *dk_j = new double[N_p];
+    double *dk_l = new double[N_p];
+    
+    fftw_init_threads();
+    fftw_plan_with_nthread(omp_get_max_threads());
+    fftw_import_wisdom_from_filename(fftwWisdom.c_str());
+    fftw_plan dki2dri = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
+                                             (fftw_complex *)dk_i, dk_i, FFTW_MEASURE);
+    fftw_plan dkj2drj = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
+                                             (fftw_complex *)dk_j, dk_j, FFTW_MEASURE);
+    fftw_plan dkl2drl = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
+                                             (fftw_complex *)dk_l, dk_l, FFTW_MEASURE);
+    fftw_export_wisdom_to_filename(fftwWisdom.c_str());
     
 }
 
