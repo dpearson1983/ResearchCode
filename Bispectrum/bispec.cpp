@@ -78,6 +78,13 @@ template <typename T> void bispec<T>::getks(int numKVals, vec2<double> k_lim) {
     }
 }
 
+template <typename T> void bispec<T>::setdrs(std::vector<int> vals) {
+    int num = vals.size();
+    bispec<T>::drs.reserve(num);
+    for (int i = 0; i < num; ++i)
+        bispec<T>::drs[i] = vals[i];
+}    
+
 template <typename T> void bispec<T>::mapdrs(vec3<int> N_grid, int flags) {
     int N_r = N_grid.x*N_grid.y*N_grid.z;
     bispec<T>::drs.reserve(N_r);
@@ -134,6 +141,18 @@ template <typename T> bispec<T>::bispec(int numKVals, vec3<double> L, vec3<int> 
     bispec<T>::mapkbins(N_grid, dk, k_lim, flags);
 }
 
+template <typename T> bispec<T>::bispec(int numKVals, vec3<double> L, vec3<int> N_grid, 
+                                        vec2<double> k_lim, std::vector<int> vals, 
+                                        int flags) {
+    vec3<double> dk = {(2.0*pi)/L.x, (2.0*pi)/L.y, (2.0*pi)/L.z};
+    bispec<T>::val.reserve(numKVals*numKVals*numKVals);
+    bispec<T>::ks.reserve(numKVals*numKVals*numKVals);
+    bispec<T>::getks(numKVals, k_lim);
+    bispec<T>::N = numKVals;
+    bispec<T>::setdrs(vals);
+    bispec<T>::mapkbins(N_grid, dk, k_lim, flags);
+}
+
 template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid, 
                                            vec2<double> k_lim, double V_f, 
                                            std::string fftwWisdom, powerspec<T> Pk, 
@@ -142,6 +161,8 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
     int N_r = N_grid.x*N_grid.y*N_grid.z;
     double Ncube = double(N_r)*double(N_r)*double(N_r);
     double delta_k = (k_lim.y - k_lim.x)/double(bispec<T>::N);
+    int numdrs = bispec<T>::drs.capacity();
+    std::cout << "Number of dr grid points: " << numdrs << std::endl;
     
     double *dk_i = new double[N_p];
     double *dk_j = new double[N_p];
@@ -194,16 +215,17 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
                 
                 double sum = 0.0;
                 #pragma omp parallel for reduction(+:sum)
-                for (int q = 0; q < N_r; ++q) {
+                for (int q = 0; q < numdrs; ++q) {
                     sum += dk_i[bispec<T>::drs[q]]
                           *dk_j[bispec<T>::drs[q]]
                           *dk_l[bispec<T>::drs[q]];
                 }
                 double V = V_f/(coeff*k_i*k_j*k_l*delta_k_cube);
+                double shotnoise = (Pk.get(i, pkFlags::MONO) + Pk.get(j, pkFlags::MONO) + 
+                       Pk.get(l, pkFlags::MONO))/nbar + 1.0/(nbar*nbar);
                 sum *= V;
-                sum -= ((Pk.get(i, pkFlags::MONO) + Pk.get(j, pkFlags::MONO) + 
-                       Pk.get(l, pkFlags::MONO))/nbar + 1.0/(nbar*nbar));
                 sum /= (Ncube*norm);
+                //sum -= shotnoise;
                 bispec<T>::val[l + bispec<T>::N*(j + bispec<T>::N*i)] = sum;
                 bispec<T>::val[l + bispec<T>::N*(i + bispec<T>::N*j)] = sum;
                 bispec<T>::val[j + bispec<T>::N*(l + bispec<T>::N*i)] = sum;
@@ -211,7 +233,7 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
                 bispec<T>::val[i + bispec<T>::N*(j + bispec<T>::N*l)] = sum;
                 bispec<T>::val[i + bispec<T>::N*(l + bispec<T>::N*j)] = sum;
                 
-                std::cout << k_i << " " << k_j << " " << k_l << " " << sum << std::endl;
+                std::cout << k_i << " " << k_j << " " << k_l << " " << sum << " " << shotnoise << std::endl;
             }
         }
     }
@@ -228,6 +250,7 @@ template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid,
     int N_r = N_grid.x*N_grid.y*N_grid.z;
     double Ncube = double(N_r)*double(N_r)*double(N_r);
     double delta_k = (k_lim.y - k_lim.x)/double(bispec<T>::N);
+    int numdrs = bispec<T>::drs.size();
     
     double *dk_i = new double[N_p];
     double *dk_j = new double[N_p];
@@ -278,16 +301,16 @@ template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid,
                 
                 double sum = 0.0;
                 #pragma omp parallel for reduction(+:sum)
-                for (int q = 0; q < N_r; ++q) {
+                for (int q = 0; q < numdrs; ++q) {
                     sum += dk_i[bispec<T>::drs[q]]
                           *dk_j[bispec<T>::drs[q]]
                           *dk_l[bispec<T>::drs[q]];
                 }
                 double V = V_f/(coeff*k_i*k_j*k_l*delta_k_cube);
+                sum /= (Ncube*norm);
                 sum *= V;
                 sum -= ((Pk.get(i, pkFlags::MONO) + Pk.get(j, pkFlags::MONO) + 
                        Pk.get(l, pkFlags::MONO))/nbar + 1.0/(nbar*nbar));
-                sum /= (Ncube*norm);
                 bispec<T>::val[l + bispec<T>::N*(j + bispec<T>::N*i)] = sum;
                 bispec<T>::val[l + bispec<T>::N*(i + bispec<T>::N*j)] = sum;
                 bispec<T>::val[j + bispec<T>::N*(l + bispec<T>::N*i)] = sum;

@@ -27,6 +27,8 @@ template <typename T> class bispec{
     
     void getks(int numKVals, vec2<double> k_lim);
     
+    void setdrs(std::vector<int> vals);
+    
     void mapdrs(vec3<int> N_grid, int flags);
         
     void mapkbins(vec3<int> N_grid, vec3<double> dk, vec2<double> k_lim, int flags);
@@ -37,6 +39,9 @@ template <typename T> class bispec{
         
         bispec(int numKVals, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim, 
                int flags = 0);
+        
+        bispec(int numKVals, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim, 
+               std::vector<int> vals, int flags = 0);
         
         void calc(double *dk3d, vec3<int> N_grid, vec2<double> k_lim, double V_f,
                   std::string fftwWisdom, powerspec<T> Pk, double nbar, double norm);
