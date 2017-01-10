@@ -37,7 +37,7 @@ template <typename T> class galaxy{
         
         void equatorial(double Omega_M, double Omega_L, gsl_integration_workspace *w);
         
-        void bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, vec3<double> &gal_nbw, double P_w, int flags);
+        void bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, vec4<double> &gal_nbw, double P_w, int flags);
         
         void rMax(vec3<double> &r_max);
         

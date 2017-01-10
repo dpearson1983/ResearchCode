@@ -39,10 +39,10 @@ template <typename T> class bispec{
                int flags = 0);
         
         void calc(double *dk3d, vec3<int> N_grid, vec2<double> k_lim, double V_f,
-                  std::string fftwWisdom, powerspec<T> Pk, double nbar);
+                  std::string fftwWisdom, powerspec<T> Pk, double nbar, double norm);
         
         void calc(fftw_complex *dk3d, vec3<int> N_grid, vec2<double> k_lim, double V_f,
-                  std::string fftwWisdom, powerspec<T> Pk, double nbar);
+                  std::string fftwWisdom, powerspec<T> Pk, double nbar, double norm);
         
         void norm();
         

@@ -125,7 +125,7 @@ template <typename T> bispec<T>::bispec() {
 
 template <typename T> bispec<T>::bispec(int numKVals, vec3<double> L, vec3<int> N_grid, 
                                         vec2<double> k_lim, int flags) {
-    vec3<double> dk = {L.x/double(N_grid.x), L.y/double(N_grid.y), L.z/double(N_grid.z)};
+    vec3<double> dk = {(2.0*pi)/L.x, (2.0*pi)/L.y, (2.0*pi)/L.z};
     bispec<T>::val.reserve(numKVals*numKVals*numKVals);
     bispec<T>::ks.reserve(numKVals*numKVals*numKVals);
     bispec<T>::getks(numKVals, k_lim);
@@ -137,9 +137,10 @@ template <typename T> bispec<T>::bispec(int numKVals, vec3<double> L, vec3<int> 
 template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid, 
                                            vec2<double> k_lim, double V_f, 
                                            std::string fftwWisdom, powerspec<T> Pk, 
-                                           double nbar) {
+                                           double nbar, double norm) {
     int N_p = N_grid.x*N_grid.y*2*(N_grid.z/2 + 1);
     int N_r = N_grid.x*N_grid.y*N_grid.z;
+    double Ncube = double(N_r)*double(N_r)*double(N_r);
     double delta_k = (k_lim.y - k_lim.x)/double(bispec<T>::N);
     
     double *dk_i = new double[N_p];
@@ -156,6 +157,8 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
     fftw_plan dkl2drl = fftw_plan_dft_c2r_3d(N_grid.x, N_grid.y, N_grid.z, 
                                              (fftw_complex *)dk_l, dk_l, FFTW_MEASURE);
     fftw_export_wisdom_to_filename(fftwWisdom.c_str());
+    
+    nbar = 1.0/nbar;
     
     double coeff = 1.0/(8.0*pi*pi*pi);
     double delta_k_cube = delta_k*delta_k*delta_k;
@@ -199,13 +202,16 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
                 double V = V_f/(coeff*k_i*k_j*k_l*delta_k_cube);
                 sum *= V;
                 sum -= ((Pk.get(i, pkFlags::MONO) + Pk.get(j, pkFlags::MONO) + 
-                       Pk.get(l, pkFlags::MONO))/nbar - 1.0/(nbar*nbar));
+                       Pk.get(l, pkFlags::MONO))/nbar + 1.0/(nbar*nbar));
+                sum /= (Ncube*norm);
                 bispec<T>::val[l + bispec<T>::N*(j + bispec<T>::N*i)] = sum;
                 bispec<T>::val[l + bispec<T>::N*(i + bispec<T>::N*j)] = sum;
                 bispec<T>::val[j + bispec<T>::N*(l + bispec<T>::N*i)] = sum;
                 bispec<T>::val[j + bispec<T>::N*(i + bispec<T>::N*l)] = sum;
                 bispec<T>::val[i + bispec<T>::N*(j + bispec<T>::N*l)] = sum;
                 bispec<T>::val[i + bispec<T>::N*(l + bispec<T>::N*j)] = sum;
+                
+                std::cout << k_i << " " << k_j << " " << k_l << " " << sum << std::endl;
             }
         }
     }
@@ -213,9 +219,10 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
 
 template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid, 
                                       vec2<double> k_lim, double V_f, 
-                                      std::string fftwWisdom, powerspec<T> Pk, double nbar) {
+                                      std::string fftwWisdom, powerspec<T> Pk, double nbar, double norm) {
     int N_p = N_grid.x*N_grid.y*2*(N_grid.z/2 + 1);
     int N_r = N_grid.x*N_grid.y*N_grid.z;
+    double Ncube = double(N_r)*double(N_r)*double(N_r);
     double delta_k = (k_lim.y - k_lim.x)/double(bispec<T>::N);
     
     double *dk_i = new double[N_p];
@@ -275,7 +282,8 @@ template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid,
                 double V = V_f/(coeff*k_i*k_j*k_l*delta_k_cube);
                 sum *= V;
                 sum -= ((Pk.get(i, pkFlags::MONO) + Pk.get(j, pkFlags::MONO) + 
-                       Pk.get(l, pkFlags::MONO))/nbar - 1.0/(nbar*nbar));
+                       Pk.get(l, pkFlags::MONO))/nbar + 1.0/(nbar*nbar));
+                sum /= (Ncube*norm);
                 bispec<T>::val[l + bispec<T>::N*(j + bispec<T>::N*i)] = sum;
                 bispec<T>::val[l + bispec<T>::N*(i + bispec<T>::N*j)] = sum;
                 bispec<T>::val[j + bispec<T>::N*(l + bispec<T>::N*i)] = sum;
