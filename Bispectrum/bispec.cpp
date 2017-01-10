@@ -160,7 +160,7 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
     
     nbar = 1.0/nbar;
     
-    double coeff = 1.0/(8.0*pi*pi*pi);
+    double coeff = 1.0/(8.0*pi*pi*pi*pi);
     double delta_k_cube = delta_k*delta_k*delta_k;
     for (int i = 0; i < bispec<T>::N; ++i) {
         double k_i = k_lim.x + (i + 0.5)*delta_k;
@@ -215,6 +215,10 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
             }
         }
     }
+    
+    fftw_destroy_plan(dki2dri);
+    fftw_destroy_plan(dkj2drj);
+    fftw_destroy_plan(dkl2drl);
 }
 
 template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid, 
@@ -240,7 +244,7 @@ template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid,
                                              (fftw_complex *)dk_l, dk_l, FFTW_MEASURE);
     fftw_export_wisdom_to_filename(fftwWisdom.c_str());
     
-    double coeff = 1.0/(8.0*pi*pi*pi);
+    double coeff = 1.0/(8.0*pi*pi*pi*pi);
     double delta_k_cube = delta_k*delta_k*delta_k;
     for (int i = 0; i < bispec<T>::N; ++i) {
         double k_i = k_lim.x + (i + 0.5)*delta_k;
@@ -293,6 +297,10 @@ template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid,
             }
         }
     }
+    
+    fftw_destroy_plan(dki2dri);
+    fftw_destroy_plan(dkj2drj);
+    fftw_destroy_plan(dkl2drl);
 }
 
 template <typename T> void bispec<T>::norm() {
