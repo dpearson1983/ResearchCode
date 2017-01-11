@@ -31,6 +31,17 @@
 #include <powerspec.h>
 #include "bispec.h"
 
+template <typename T> std::vector<T> bispec<T>::fftFreq(int N, double L) {
+    double dk = (2.0*pi)/L;
+    std::vector<T> k;
+    k.reserve(N);
+    for (int i = 0; i <= N/2; ++i)
+        k[i] = i*dk;
+    for (int i = N/2 + 1; i < N; ++i)
+        k[i] = (i - N)*dk;
+    return k;
+}
+
 template <typename T> void bispec<T>::get_shell(double *dk3d, double *dk3d_shell, 
                                                 vec3<int> N_grid, int kBin) {
     int N_p = N_grid.x*N_grid.y*2*(N_grid.z/2 + 1);
@@ -73,6 +84,27 @@ template <typename T> void bispec<T>::getks(int numKVals, vec2<double> k_lim) {
                 vec3<T> temp = {ki, kj, kl};
                 bispec<T>::ks.push_back(temp);
                 bispec<T>::val.push_back(-pi);
+            }
+        }
+    }
+}
+
+template <typename T> void bispec<T>::getks(vec3<double> L, vec3<int> N_grid, vec2<double> k_lim) {
+    std::vector<T> kx = fftFreq(N_grid.x, L.x);
+    std::vector<T> ky = fftFreq(N_grid.y, L.y);
+    std::vector<T> kz = fftFreq(N_grid.z, L.z);
+    
+    for (int i = 0; i < N_grid.x; ++i) {
+        for (int j = 0; j < N_grid.y; ++j) {
+            for (int l = 0; l < N_grid.z; ++l) {
+                double k = sqrt(kx[i]*kx[i] + ky[j]*ky[j] + kz[l]*kz[l]);
+                
+                if (k >= k_lim.x && k <= k_lim.y) {
+                    int index = l + (N_grid.z/2 + 1)*(j + N_grid.y*i);
+                    vec3<T> kvec = {kx[i], ky[j], kz[l]};
+                    bispec<T>::ks.push_back(kvec);
+                    bispec<T>::kbins.push_back(index);
+                }
             }
         }
     }
@@ -135,10 +167,15 @@ template <typename T> bispec<T>::bispec(int numKVals, vec3<double> L, vec3<int> 
     vec3<double> dk = {(2.0*pi)/L.x, (2.0*pi)/L.y, (2.0*pi)/L.z};
     bispec<T>::val.reserve(numKVals*numKVals*numKVals);
     bispec<T>::ks.reserve(numKVals*numKVals*numKVals);
-    bispec<T>::getks(numKVals, k_lim);
-    bispec<T>::N = numKVals;
-    bispec<T>::mapdrs(N_grid, flags);
-    bispec<T>::mapkbins(N_grid, dk, k_lim, flags);
+    if (flags & bkFlags::BRUTE_CALC) {
+        bispec<T>::getks(L, N_grid, k_lim);
+        bispec<T>::N = bispec<T>::ks.size();
+    } else {
+        bispec<T>::getks(numKVals, k_lim);
+        bispec<T>::N = numKVals;
+        bispec<T>::mapdrs(N_grid, flags);
+        bispec<T>::mapkbins(N_grid, dk, k_lim, flags);
+    }
 }
 
 template <typename T> bispec<T>::bispec(int numKVals, vec3<double> L, vec3<int> N_grid, 
@@ -324,6 +361,49 @@ template <typename T> void bispec<T>::calc(fftw_complex *dk3d, vec3<int> N_grid,
     fftw_destroy_plan(dki2dri);
     fftw_destroy_plan(dkj2drj);
     fftw_destroy_plan(dkl2drl);
+}
+
+// This function will be a brute force calculation of the bispectrum. This is being included as a 
+// way of getting data to test the other calculation algorithms which seem not to be working at this
+// time. In order to make the algorithm as optimal as possible, the funtion will need:
+//      fftw_complex *dk3d - The delta(k) box
+//      vec3<T> ks - The k vectors associated with grid points of interest in dk3d
+//      vec3<int> drs - The indices of the grid points of interest
+// As this function will use data members meant for the other calculation methods in a different maner,
+// it will be necessary to call a custom initialization for use with this function.
+template <typename T> void bispec<T>::bruteCalc(fftw_complex *dk3d, vec3<double> L, vec3<int> N_grid, 
+                                                vec2<double> k_lim, double nbar, 
+                                                double norm) {
+    std::cout << "This is a work in progress." << std::endl;
+    
+    std::ofstream fout;
+    
+    std::cout << "ks.size() = " << bispec<T>::ks.size() << std::endl;
+    std::cout << "ks.capacity() = " << bispec<T>::ks.capacity() << std::endl;
+    
+    int n = bispec<T>::kbins.size();
+    
+    int numRepeats = 0;
+    
+    std::vector<vec3<T>> k3s;
+   
+    for (int i = 0; i < n; ++i) {
+        for(int j = i; j < n; ++j) {
+            vec3<T> k3 = {(-1.0)*bispec<T>::ks[i].x + (-1.0)*bispec<T>::ks[j].x,
+                          (-1.0)*bispec<T>::ks[i].y + (-1.0)*bispec<T>::ks[j].y,
+                          (-1.0)*bispec<T>::ks[i].z + (-1.0)*bispec<T>::ks[j].z};
+            if (k3.x == 0.0) k3.x = 0;
+            if (k3.y == 0.0) k3.y = 0;
+            if (k3.z == 0.0) k3.z = 0;
+            k3s.push_back(k3);
+            int num = k3s.size();
+            for (int l = 0; l < num; ++l) {
+                if (k3s[i] == k3) ++numRepeats;
+            }
+        }
+    }
+    
+    std::cout << "Repeated k3's: " << numRepeats << std::endl;
 }
 
 template <typename T> void bispec<T>::norm() {

@@ -11,7 +11,8 @@ struct bkFlags{
         IN_PLACE     = 0x1,
         OUT_OF_PLACE = 0x2,
         HEADER       = 0x4,
-        TABLE        = 0x8
+        TABLE        = 0x8,
+        BRUTE_CALC   = 0x10
     };
 };
 
@@ -21,11 +22,15 @@ template <typename T> class bispec{
     std::vector<int> drs, kbins;
     int N;
     
+    std::vector<T> fftFreq(int N, double L);
+    
     void get_shell(double *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
     
     void get_shell(fftw_complex *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
     
     void getks(int numKVals, vec2<double> k_lim);
+    
+    void getks(vec3<double> L, vec3<int> N_grid, vec2<double> k_lim);
     
     void setdrs(std::vector<int> vals);
     
@@ -48,6 +53,9 @@ template <typename T> class bispec{
         
         void calc(fftw_complex *dk3d, vec3<int> N_grid, vec2<double> k_lim, double V_f,
                   std::string fftwWisdom, powerspec<T> Pk, double nbar, double norm);
+        
+        void bruteCalc(fftw_complex *dk3d, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim,
+                       double nbar, double norm);
         
         void norm();
         
