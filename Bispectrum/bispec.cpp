@@ -179,7 +179,7 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
                                              (fftw_complex *)dk_l, dk_l, FFTW_MEASURE);
     fftw_export_wisdom_to_filename(fftwWisdom.c_str());
     
-    nbar = 1.0/nbar;
+    //nbar = 1.0/nbar;
     
     double coeff = 1.0/(8.0*pi*pi*pi*pi);
     double delta_k_cube = delta_k*delta_k*delta_k;
