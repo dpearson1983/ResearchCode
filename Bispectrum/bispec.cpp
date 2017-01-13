@@ -236,9 +236,9 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
                 for (int q = 0; q < N_p; ++q)
                     dk_j[q] = dk_i[q];
             }
-            int stop = (k_i + k_j - k_lim.x)/delta_k;
-            stop = std::min(stop, bispec<T>::N);
-            for (int l = j; l < stop; ++l) {
+            //int stop = (k_i + k_j - k_lim.x)/delta_k;
+            //stop = std::min(stop, bispec<T>::N);
+            for (int l = j; l < bispec<T>::N; ++l) {
                 double k_l = k_lim.x + (l + 0.5)*delta_k;
                 if (l != j) {
                     int k_lBin = (k_l - k_lim.x)/delta_k;
@@ -396,10 +396,10 @@ template <typename T> void bispec<T>::bruteCalc(fftw_complex *dk3d, vec3<double>
             if (k3.y == 0.0) k3.y = 0;
             if (k3.z == 0.0) k3.z = 0;
             k3s.push_back(k3);
-            int num = k3s.size();
-            for (int l = 0; l < num; ++l) {
-                if (k3s[i] == k3) ++numRepeats;
-            }
+//             int num = k3s.size();
+//             for (int l = 0; l < num; ++l) {
+//                 if (k3s[i] == k3) ++numRepeats;
+//             }
         }
     }
     
