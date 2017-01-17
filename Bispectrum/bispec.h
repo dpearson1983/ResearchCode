@@ -24,9 +24,9 @@ template <typename T> class bispec{
     
     std::vector<T> fftFreq(int N, double L);
     
-    void get_shell(double *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
+    int get_shell(double *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
     
-    void get_shell(fftw_complex *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
+    int get_shell(fftw_complex *dk3d, double *dk3d_shell, vec3<int> N_grid, int kBin);
     
     void getks(int numKVals, vec2<double> k_lim);
     

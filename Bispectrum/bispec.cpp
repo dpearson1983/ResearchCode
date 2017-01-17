@@ -42,17 +42,25 @@ template <typename T> std::vector<T> bispec<T>::fftFreq(int N, double L) {
     return k;
 }
 
-template <typename T> void bispec<T>::get_shell(double *dk3d, double *dk3d_shell, 
+template <typename T> int bispec<T>::get_shell(double *dk3d, double *dk3d_shell, 
                                                 vec3<int> N_grid, int kBin) {
     int N_p = N_grid.x*N_grid.y*2*(N_grid.z/2 + 1);
+    int count = 0;
     for (int i = 0; i < N_p; ++i) {
-        if (bispec<T>::kbins[i] == kBin) dk3d_shell[i] = dk3d[i];
-        else dk3d_shell[i] = 0.0;
+        if (bispec<T>::kbins[i] == kBin) {
+            dk3d_shell[i] = dk3d[i];
+            count++;
+        } else {
+            dk3d_shell[i] = 0.0;
+        }
     }
+    count /= 2;
+    return count;
 }
 
-template <typename T> void bispec<T>::get_shell(fftw_complex *dk3d, double *dk3d_shell, 
+template <typename T> int bispec<T>::get_shell(fftw_complex *dk3d, double *dk3d_shell, 
                                                 vec3<int> N_grid, int kBin) {
+    int count = 0;
     for (int i = 0; i < N_grid.x; ++i) {
         for (int j = 0; j < N_grid.y; ++j) {
             for (int k = 0; k <= N_grid.z/2; ++k) {
@@ -63,6 +71,7 @@ template <typename T> void bispec<T>::get_shell(fftw_complex *dk3d, double *dk3d
                 if (bispec<T>::kbins[index2] == kBin && bispec<T>::kbins[index3] == kBin) {
                     dk3d_shell[index2] = dk3d[index1][0];
                     dk3d_shell[index3] = dk3d[index1][1];
+                    count++;
                 } else {
                     dk3d_shell[index2] = 0.0;
                     dk3d_shell[index3] = 0.0;
@@ -70,6 +79,7 @@ template <typename T> void bispec<T>::get_shell(fftw_complex *dk3d, double *dk3d
             }
         }
     }
+    return count;
 }
 
 template <typename T> void bispec<T>::getks(int numKVals, vec2<double> k_lim) {
@@ -223,15 +233,17 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
     for (int i = 0; i < bispec<T>::N; ++i) {
         double k_i = k_lim.x + (i + 0.5)*delta_k;
         int k_iBin = (k_i - k_lim.x)/delta_k;
-        get_shell(dk3d, dk_i, N_grid, k_iBin);
+        int Nkx = get_shell(dk3d, dk_i, N_grid, k_iBin);
         fftw_execute(dki2dri);
         for (int j = i; j < bispec<T>::N; ++j) {
             double k_j = k_lim.x + (j + 0.5)*delta_k;
+            int Nky;
             if (j != i) {
                 int k_jBin = (k_j - k_lim.x)/delta_k;
-                get_shell(dk3d, dk_j, N_grid, k_jBin);
+                Nky = get_shell(dk3d, dk_j, N_grid, k_jBin);
                 fftw_execute(dkj2drj);
             } else {
+                Nky = Nkx;
                 #pragma omp parallel for
                 for (int q = 0; q < N_p; ++q)
                     dk_j[q] = dk_i[q];
@@ -240,11 +252,13 @@ template <typename T> void bispec<T>::calc(double *dk3d, vec3<int> N_grid,
             //stop = std::min(stop, bispec<T>::N);
             for (int l = j; l < bispec<T>::N; ++l) {
                 double k_l = k_lim.x + (l + 0.5)*delta_k;
+                int Nkz;
                 if (l != j) {
                     int k_lBin = (k_l - k_lim.x)/delta_k;
-                    get_shell(dk3d, dk_l, N_grid, k_lBin);
+                    Nkz = get_shell(dk3d, dk_l, N_grid, k_lBin);
                     fftw_execute(dkl2drl);
                 } else {
+                    Nkz = Nky;
                     #pragma omp parallel for
                     for (int q = 0; q < N_p; ++q)
                         dk_l[q] = dk_j[q];
