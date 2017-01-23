@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -march=native -mtune=native -O3 -w
-LDLIBS = -lfftw3 -lfftw3_omp -fopenmp
+LDLIBS = -lgsl -lgslcblas -lfftw3 -lfftw3_omp -fopenmp
 DEPS = powerspec.h
 
 localinstall: powerspec.cpp

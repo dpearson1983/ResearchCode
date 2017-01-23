@@ -336,11 +336,11 @@ template <typename T> void powerspec<T>::writeFile(std::string file, int flags) 
     fout.close();
 }
 
-template <typename T> void initSplines(int flags) {
+template <typename T> void powerspec<T>::initSplines(int flags) {
     double dk = powerspec<T>::k[1] - powerspec<T>::k[0];
-    std::vector<T> power;
+    std::vector<double> power;
     power.reserve(powerspec<T>::N + 2);
-    std::vector<T> k_sp;
+    std::vector<double> k_sp;
     k_sp.reserve(powerspec<T>::N + 2);
     if (flags & pkFlags::MONO) {
         for (int i = 1; i <= powerspec<T>::N; ++i) {
