@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <gsl/gsl_spline.h>
 #include <fftw3.h>
 #include <tpods.h>
 
@@ -27,6 +28,12 @@ template <typename T> class powerspec{
     std::vector<T> mono, quad, hexa, k; // Storage for multipoles and frequencies
     std::vector<int> N_k; // Storage for number of frequencies in each bin
     int N; // Number of frequency bins
+    gsl_spline *P_0;
+    gsl_spline *P_2;
+    gsl_spline *P_4;
+    gsl_interp_accel *acc_0 = gsl_interp_accel_alloc();
+    gsl_interp_accel *acc_2 = gsl_interp_accel_alloc();
+    gsl_interp_accel *acc_4 = gsl_interp_accel_alloc();
     
     void binFreq(fftw_complex A_0, int bin, double grid_cor, double shotnoise);
     
@@ -51,7 +58,13 @@ template <typename T> class powerspec{
         
         void writeFile(std::string file, int flags);
         
+        void initSplines(int flags);
+        
         T get(int index, int flags);
+        
+        T get(double k, int flags);
+        
+        void cleanUp(int flags);
         
 };
 

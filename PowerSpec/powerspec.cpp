@@ -23,6 +23,7 @@
 #include <limits>
 #include <cmath>
 #include <vector>
+#include <gsl/gsl_spline.h>
 #include <fftw3.h>
 #include <omp.h>
 #include <tpods.h>
@@ -335,10 +336,80 @@ template <typename T> void powerspec<T>::writeFile(std::string file, int flags) 
     fout.close();
 }
 
+template <typename T> void initSplines(int flags) {
+    double dk = powerspec<T>::k[1] - powerspec<T>::k[0];
+    std::vector<T> power;
+    power.reserve(powerspec<T>::N + 2);
+    std::vector<T> k_sp;
+    k_sp.reserve(powerspec<T>::N + 2);
+    if (flags & pkFlags::MONO) {
+        for (int i = 1; i <= powerspec<T>::N; ++i) {
+            k_sp[i] = powerspec<T>::k[i - 1];
+            power[i] = powerspec<T>::mono[i - 1];
+        }
+        k_sp[0] = powerspec<T>::k[0] - 0.5*dk;
+        k_sp[powerspec<T>::N + 1] = powerspec<T>::k[powerspec<T>::N - 1] + 0.5*dk;
+        power[0] = powerspec<T>::mono[0] - 0.5*(powerspec<T>::mono[1] - powerspec<T>::mono[0]);
+        power[powerspec<T>::N + 1] = powerspec<T>::mono[powerspec<T>::N - 1] + 
+                                0.5*(powerspec<T>::mono[powerspec<T>::N - 1] - powerspec<T>::mono[powerspec<T>::N - 2]);
+        powerspec<T>::P_0 = gsl_spline_alloc(gsl_interp_cspline, powerspec<T>::N + 2);
+        gsl_spline_init(powerspec<T>::P_0, &k_sp[0], &power[0], powerspec<T>::N + 2);
+    }
+    
+    if (flags & pkFlags::QUAD) {
+        for (int i = 1; i <= powerspec<T>::N; ++i) {
+            k_sp[i] = powerspec<T>::k[i - 1];
+            power[i] = powerspec<T>::quad[i - 1];
+        }
+        k_sp[0] = powerspec<T>::k[0] - 0.5*dk;
+        k_sp[powerspec<T>::N + 1] = powerspec<T>::k[powerspec<T>::N - 1] + 0.5*dk;
+        power[0] = powerspec<T>::quad[0] - 0.5*(powerspec<T>::quad[1] - powerspec<T>::quad[0]);
+        power[powerspec<T>::N + 1] = powerspec<T>::quad[powerspec<T>::N - 1] + 
+                                0.5*(powerspec<T>::quad[powerspec<T>::N - 1] - powerspec<T>::quad[powerspec<T>::N - 2]);
+        powerspec<T>::P_2 = gsl_spline_alloc(gsl_interp_cspline, powerspec<T>::N + 2);
+        gsl_spline_init(powerspec<T>::P_2, &k_sp[0], &power[0], powerspec<T>::N + 2);
+    }
+    
+    if (flags & pkFlags::HEXA) {
+        for (int i = 1; i <= powerspec<T>::N; ++i) {
+            k_sp[i] = powerspec<T>::k[i - 1];
+            power[i] = powerspec<T>::hexa[i - 1];
+        }
+        k_sp[0] = powerspec<T>::k[0] - 0.5*dk;
+        k_sp[powerspec<T>::N + 1] = powerspec<T>::k[powerspec<T>::N - 1] + 0.5*dk;
+        power[0] = powerspec<T>::hexa[0] - 0.5*(powerspec<T>::hexa[1] - powerspec<T>::hexa[0]);
+        power[powerspec<T>::N + 1] = powerspec<T>::hexa[powerspec<T>::N - 1] + 
+                                0.5*(powerspec<T>::hexa[powerspec<T>::N - 1] - powerspec<T>::hexa[powerspec<T>::N - 2]);
+        powerspec<T>::P_4 = gsl_spline_alloc(gsl_interp_cspline, powerspec<T>::N + 2);
+        gsl_spline_init(powerspec<T>::P_4, &k_sp[0], &power[0], powerspec<T>::N + 2);
+    }
+}
+
 template <typename T> T powerspec<T>::get(int index, int flags) {
     if (flags & pkFlags::MONO) return powerspec<T>::mono[index];
     if (flags & pkFlags::QUAD) return powerspec<T>::quad[index];
     if (flags & pkFlags::HEXA) return powerspec<T>::hexa[index];
+}
+
+template <typename T> T powerspec<T>::get(double k, int flags) {
+    if (flags & pkFlags::MONO) return gsl_spline_eval(powerspec::P_0, k, powerspec<T>::acc_0);
+    if (flags & pkFlags::QUAD) return gsl_spline_eval(powerspec::P_2, k, powerspec<T>::acc_2);
+    if (flags & pkFlags::HEXA) return gsl_spline_eval(powerspec::P_4, k, powerspec<T>::acc_4);
+}
+
+template <typename T> void cleanUp(int flags) {
+    if (flags & pkFlags::MONO) {
+        gsl_spline_free(powerspec<T>::P_0);
+        gsl_interp_accel_free(powerspec<T>::acc_0);
+    }
+    if (flags & pkFlags::QUAD) {
+        gsl_spline_free(powerspec<T>::P_2);
+        gsl_interp_accel_free(powerspec<T>::acc_2);
+    }
+    if (flags & pkFlags::HEXA) {
+        gsl_spline_free(powerspec<T>::P_4);
+        gsl_interp_accel_free(powerspec<T>::acc_4);
+    }
 }
 
 template class powerspec<double>;
