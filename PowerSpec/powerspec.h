@@ -9,18 +9,20 @@
 
 struct pkFlags{
     enum value{
-        MONO         =   0x1,
-        QUAD         =   0x2,
-        HEXA         =   0x4,
-        FF           =   0x8,
-        BS           =  0x10,
-        GRID_COR     =  0x20,
-        NGP          =  0x40,
-        CIC          =  0x80,
-        LIST         = 0x100,
-        TABLE        = 0x200,
-        HEADER       = 0x400,
-        OUT_OF_PLACE = 0x800
+        MONO         =    0x1,
+        QUAD         =    0x2,
+        HEXA         =    0x4,
+        FF           =    0x8,
+        BS           =   0x10,
+        GRID_COR     =   0x20,
+        NGP          =   0x40,
+        CIC          =   0x80,
+        LIST         =  0x100,
+        TABLE        =  0x200,
+        HEADER       =  0x400,
+        OUT_OF_PLACE =  0x800,
+        R2C          = 0x1000,
+        C2C          = 0x2000
     };
 };
 
@@ -46,6 +48,9 @@ template <typename T> class powerspec{
         powerspec(int numKVals, vec2<double> k_lim, int flags = 0);
         
         void calc(double *dr3d, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim, 
+                  double shotnoise, std::string fftwWisdom, int flags);
+        
+        void calc(fftw_complex *dr3d, vec3<double> L, vec3<int> N_grid, vec2<double> k_lim, 
                   double shotnoise, std::string fftwWisdom, int flags);
         
         void disc_cor(std::string file, int flags);

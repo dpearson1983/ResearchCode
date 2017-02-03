@@ -116,7 +116,7 @@ template <typename T> void galaxy<T>::equatorial(double Omega_M, double Omega_L,
     galaxy<T>::red = r2z(r_mag, Omega_M, Omega_L, 1E-12, w);
 }
 
-template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, vec4<double> &gal_nbw, double P_w, int flags) {
+template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int> N, vec3<double> r_min, vec3<double> &pk_nbw, vec3<double> &bk_nbw, double P_w, int flags) {
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
     
     double w;
@@ -136,10 +136,12 @@ template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int
         w = galaxy<T>::w;
     }
     
-    gal_nbw.x += w;
-    gal_nbw.y += w*w;
-    gal_nbw.z += galaxy<T>::nbar*w*w;
-    gal_nbw.w += galaxy<T>::nbar*galaxy<T>::nbar*w*w*w;
+    pk_nbw.x += w;
+    pk_nbw.y += w*w;
+    pk_nbw.z += galaxy<T>::nbar*w*w;
+    bk_nbw.x += w*w*w;
+    bk_nbw.y += galaxy<T>::nbar*w*w*w;
+    bk_nbw.z += galaxy<T>::nbar*galaxy<T>::nbar*w*w*w;
     
     if (flags & galFlags::NGP) {
         vec3<int> ngp = {(galaxy<T>::x - r_min.x)/dr.x, (galaxy<T>::y - r_min.y)/dr.y, (galaxy<T>::z - r_min.z)/dr.z};
