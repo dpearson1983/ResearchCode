@@ -133,7 +133,7 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
         k_1.y *= -1;
         k_1.z *= -1;
         double4 dk_1 = dk3d[k_1.w];
-//         double P_1 = (dk_1.x*dk_1.x + dk_1.y*dk_1.y - SN)*dk_1.w*dk_1.w;
+        double P_1 = (dk_1.x*dk_1.x + dk_1.y*dk_1.y - SN)*dk_1.w*dk_1.w;
         for (int i = 0; i < N; ++i) {
             int4 k_2 = kvec[i];
             double4 dk_2 = dk3d[k_2.w];
@@ -146,12 +146,12 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
                 k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
                 double4 dk_3 = dk3d[k_3.w];
                 if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
-//                     double P_2 = (dk_2.x*dk_2.x + dk_2.y*dk_2.y - SN)*dk_2.w*dk_2.w;
-//                     double P_3 = (dk_3.x*dk_3.x + dk_3.y*dk_3.y - SN)*dk_3.w*dk_3.w;
+                    double P_2 = (dk_2.x*dk_2.x + dk_2.y*dk_2.y - SN)*dk_2.w*dk_2.w;
+                    double P_3 = (dk_3.x*dk_3.x + dk_3.y*dk_3.y - SN)*dk_3.w*dk_3.w;
                     double grid_cor = dk_1.w*dk_2.w*dk_3.w;
                     double val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
                     val *= grid_cor;
-//                     val -= ((P_1 + P_2 + P_3)*mult + term);
+                    val -= ((P_1 + P_2 + P_3)*mult + term);
                     int bin = getBkBin(dk_1.z, dk_2.z, dk_3.z, binWidth, numBins, k_lim.x);
                     atomicAdd(&Bk[bin], val);
                     atomicAdd(&N_tri[bin], 1);
@@ -188,17 +188,36 @@ int main(int argc, char *argv[]) {
     
     double2 k_lim = {p.getd("k_min"), p.getd("k_max")};
     double *nden_gal, *nden_ran;
+    double nbar_ran, start;
     
     std::vector<std::string> hdus(2);
     hdus[0] = p.gets("hdus", 0);
     hdus[1] = p.gets("hdus", 1);
     
-    double start = omp_get_wtime();
-    double nbar_ran = readFits(p.gets("randomsFile"), hdus, 1, nden_ran, p.getd("resolution"), L, N, r_min,
-             ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::CIC,
-             p.getd("Omega_M"), p.getd("Omega_L"), p.getd("z_min"), p.getd("z_max"));
-    std::cout << "    Time to read in and bin randoms: " << omp_get_wtime() - start << " s" 
-    << std::endl;
+    if (p.getb("dynamicGrid")) {
+        start = omp_get_wtime();
+        nbar_ran = readFits(p.gets("randomsFile"), hdus, 1, nden_ran, p.getd("resolution"), L, N, r_min,
+                            ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::NGP,
+                            p.getd("Omega_M"), p.getd("Omega_L"), p.getd("z_min"), p.getd("z_max"));
+        std::cout << "    Time to read in and bin randoms: " << omp_get_wtime() - start << " s" 
+        << std::endl;
+    } else {
+        L.x = p.getd("Lx");
+        L.y = p.getd("Ly");
+        L.z = p.getd("Lz");
+        r_min.x = p.getd("xmin");
+        r_min.y = p.getd("ymin");
+        r_min.z = p.getd("zmin");
+        N.x = p.geti("Nx");
+        N.y = p.geti("Ny");
+        N.z = p.geti("Nz");
+        start = omp_get_wtime();
+        nbar_ran = readFits(p.gets("randomsFile"), hdus, 1, nden_ran, L, N, r_min,
+                            ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::NGP,
+                            p.getd("Omega_M"), p.getd("Omega_L"), p.getd("z_min"), p.getd("z_max"));
+        std::cout << "    Time to read in and bin randoms: " << omp_get_wtime() - start << " s" 
+        << std::endl;
+    }
     
     vec3<double> Delta_k = {double(2.0*pi)/L.x, double(2.0*pi)/L.y, double(2.0*pi)/L.z};
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
@@ -208,7 +227,7 @@ int main(int argc, char *argv[]) {
     
     start = omp_get_wtime();
     double nbar_gal = readFits(p.gets("galaxyFile"), hdus, 1, nden_gal, L, N, r_min, galpk_nbw, galbk_nbw, p.getd("P_w"),
-             galFlags::INPUT_WEIGHT|galFlags::CIC, p.getd("Omega_M"), p.getd("Omega_L"), 
+             galFlags::INPUT_WEIGHT|galFlags::NGP, p.getd("Omega_M"), p.getd("Omega_L"), 
              p.getd("z_min"), p.getd("z_max"));
     std::cout << "    Time to read in and bin galaxys: " << omp_get_wtime() - start << std::endl;
     
@@ -242,11 +261,18 @@ int main(int argc, char *argv[]) {
     vec2<double> klim = {k_lim.x, k_lim.y};
     powerspec<double> Pk(p.geti("numKVals"), klim, 0);
     std::cout << "Calculating power spectrum..." << std::endl;
-    Pk.calc(delta, L, N, klim, shotnoise, p.gets("wisdomFile"), pkFlags::GRID_COR|pkFlags::CIC|pkFlags::C2C);
+    Pk.calc(delta, L, N, klim, shotnoise, p.gets("wisdomFile"), pkFlags::GRID_COR|pkFlags::NGP|pkFlags::C2C);
     std::cout << "Normalizing power spectrum..." << std::endl;
     Pk.norm(galpk_nbw.z, 0);
     Pk.print();
     Pk.writeFile(p.gets("PkOutFile"), 0);
+    
+    if (p.getb("pausePk")) {
+        char choice;
+        std::cout << "Continue (y or n): ";
+        std::cin >> choice;
+        if (choice == 'n') return 0;
+    }
     
     int4 N_grid;
     N_grid.x = 2*k_lim.y/Delta_k.x + 1 - (int(2*k_lim.y/Delta_k.x) % 2);
@@ -366,8 +392,8 @@ int main(int argc, char *argv[]) {
 //     if (gridSpace < Delta_k.y) gridSpace = Delta_k.y;
 //     if (gridSpace < Delta_k.z) gridSpace = Delta_k.z;
     
-    int numKBins = ceil((k_lim.y - k_lim.x)/Delta_k.x);
-    double gridSpace = Delta_k.x;
+    double gridSpace = p.getd("binScale")*Delta_k.x;
+    int numKBins = ceil((k_lim.y - k_lim.x)/gridSpace);
     int totBins = numKBins*numKBins*numKBins;
     
     // Allocate memory on the GPU and host to store B(k)
@@ -405,6 +431,7 @@ int main(int argc, char *argv[]) {
     int numBlocks = ceil(numKVecs/p.getd("numThreads"));
     double term = galbk_nbw.x - alpha*alpha*alpha*ranbk_nbw.x;
     std::cout << "Additional shotnoise term: " << term << std::endl;
+    std::cout << "galbk_nbw.y = " << galbk_nbw.y << std::endl;
     
     cudaEvent_t begin, end;
     float elapsedTime;

@@ -170,13 +170,20 @@ template <typename T> void galaxy<T>::bin(double *nden, vec3<double> L, vec3<int
         
         int index = ngp.z + N.z*(ngp.y + N.y*ngp.x);
         nden[index] += V8*w;
-        nden[index + shift.x*N.z*N.y] += V7*w;
-        nden[index + shift.y*N.z] += V6*w;
-        nden[index + shift.z] += V5*w;
-        nden[index + shift.y*N.z + shift.x*N.z*N.y] += V4*w;
-        nden[index + shift.z + shift.x*N.z*N.y] += V3*w;
-        nden[index + shift.z + shift.y*N.z] += V2*w;
-        nden[index + shift.z + shift.y*N.z + shift.x*N.z*N.y] += V1*w;
+        index = ngp.z + N.z*(ngp.y + N.y*(ngp.x + shift.x));
+        nden[index] += V7*w;
+        index = ngp.z + N.z*((ngp.y + shift.y) + N.y*ngp.x);
+        nden[index] += V6*w;
+        index = (ngp.z + shift.z) + N.z*(ngp.y + N.y*ngp.x);
+        nden[index] += V5*w;
+        index = ngp.z + N.z*((ngp.y + shift.y) + N.y*(ngp.x + shift.x));
+        nden[index] += V4*w;
+        index = (ngp.z + shift.z) + N.z*(ngp.y + N.y*(ngp.x + shift.x));
+        nden[index] += V3*w;
+        index = (ngp.z + shift.z) + N.z*((ngp.y + shift.y) + N.y*ngp.x);
+        nden[index] += V2*w;
+        index = (ngp.z + shift.z) + N.z*((ngp.y + shift.y) + N.y*(ngp.x + shift.x));
+        nden[index] += V1*w;
     }
     
 }
