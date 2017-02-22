@@ -200,5 +200,19 @@ template <typename T> void galaxy<T>::rMin(vec3<double> &r_min) {
     if (galaxy<T>::z < r_min.z) r_min.z = galaxy<T>::z;
 }
 
+template <typename T> vec3<T> galaxy<T>::get_cart() {
+    vec3<T> cart = {galaxy<T>::x, galaxy<T>::y, galaxy<T>::z};
+    return cart;
+}
+
+template <typename T> vec3<T> galaxy<T>::get_equa() {
+    vec3<T> equa = {galaxy<T>::ra, galaxy<T>::dec, galaxy<T>::red};
+    return equa;
+}
+
+template <typename T> T galaxy<T>::get_weight() {
+    return galaxy<T>::w;
+}
+
 template class galaxy<double>;
 template class galaxy<float>;

@@ -44,6 +44,12 @@ template <typename T> class galaxy{
         
         void rMin(vec3<double> &r_min);
         
+        vec3<T> get_cart();
+        
+        vec3<T> get_equa();
+        
+        T get_weight();
+        
 };
         
 #endif

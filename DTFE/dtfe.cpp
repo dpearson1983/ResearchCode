@@ -3,10 +3,15 @@
 #include <iterator>
 #include <cassert>
 #include <algorithm>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_vector.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Triangulation_vertex_base_with_info_3.h>
+#include <galaxy.h>
 #include <tpods.h>
+#include "dtfe.h"
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Triangulation_vertex_base_with_info_3<unsigned, K> Vb;
@@ -19,30 +24,57 @@ typedef Delaunay::Locate_type Locate_type;
 typedef Delaunay::Tetrahedron Tetrahedron;
 
 // Function that will return an interpolated density field using the Delaunay Tessellation
-void interpDTFE(std::vector<Point> &pts, vec3<double> r_min, vec3<double> L, vec3<int> N, double *nden) {
+void interpDTFE(std::vector<galaxy<double>> &gals, vec3<double> r_min, vec3<double> L, vec3<int> N, 
+                double *nden) {
+    // Calculate the spacing of the grid points so that positions can be assigned.
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
     
-    int numPts = pts.size();
+    // Find how many galaxies (and therefore vertices) there are. Setup storage for Point types, and
+    // number density.
+    int numPts = gals.size();
+    std::vector<Point> pts;
+//     std::vector<double> n;
+//     n.reserve(numPts);
+    
+    // Populate the vector of Points, and initialize the number densities.
+    for (int i = 0; i < numPts; ++i) {
+        vec3<double> gal = gals[i].get_cart();
+        Point p_temp(gal.x, gal.y, gal.z);
+        pts.push_back(p_temp);
+//         n[i] = 0.0;
+    }
+    
+    // Find the Delaunay Tessellation and make sure it's valid
     Delaunay dt(pts.begin(), pts.end());
     assert(dt.is_valid());
     
-    std::vector<double> n(numPts);
+    // Loop over all the galaxies, find the all cells which have a galaxy as a vertex, sum the volume
+    // and then estimate the overdensity as 4/V_sum, where the factor of 4 comes from the fact that
+    // each cell's volume will be counted four times (once for each vertex).
+//     for (int i = 0; i < numPts; ++i) {
+//         Vertex_handle v = dt.nearest_vertex(pts[i]);
+//         std::vector<Cell_handle> c;
+//         dt.incident_cells(v, std::back_inserter(c));
+//         double Vol = 0.0;
+//         int numCells = c.size();
+//         for (int j = 0; j < numCells; ++j) {
+//             if (!dt.is_infinite(c[j])) {
+//                 Tetrahedron t = dt.tetrahedron(c[j]);
+//                 Vol += CGAL::volume(t[0], t[1], t[2], t[3]);
+//             }
+//         }
+//         n[i] = (4.0*gals[i].get_weight())/Vol;
+//     }
     
-    for (int i = 0; i < numPts; ++i) {
-        Vertex_handle v = dt.nearest_vertex(pts[i]);
-        std::vector<Cell_handle> c;
-        dt.incident_cells(v, std::back_inserter(c));
-        double Vol = 0.0;
-        int numCells = c.size();
-        for (int j = 0; j < numCells; ++j) {
-            if (!dt.is_infinite(c[j])) {
-                Tetrahedron t = dt.tetrahedron(c[j]);
-                Vol += CGAL::volume(t[0], t[1], t[2], t[3]);
-            }
-        }
-        n[i] = 4.0/Vol;
-    }
-    
+    // Loop over all grid points, locate the tetrahedron that a grid point falls into as well as the
+    // nearest vertex. The nearest vertex becomes x_0, while the remaining 3 points become x_1, x_2, and
+    // x_3. Locate the associated number densities, setup matrices and vectors to solve for the components
+    // of the gradient, then interpolate the field to the grid point.
+    gsl_matrix *coeff = gsl_matrix_alloc(3,3);
+    gsl_vector *gradf = gsl_vector_alloc(3);
+    gsl_vector *difff = gsl_vector_alloc(3);
+    gsl_permutation *perm = gsl_permutation_alloc(3);
+    Cell_handle c_prev; // To check for possible data reuse
     for (int i = 0; i < N.x; ++i) {
         double x = r_min.x + (i + 0.5)*dr.x;
         for (int j = 0; j < N.y; ++j) {
@@ -51,14 +83,44 @@ void interpDTFE(std::vector<Point> &pts, vec3<double> r_min, vec3<double> L, vec
                 double z = r_min.z + (k + 0.5)*dr.z;
                 Locate_type lt;
                 int li, lj;
+                int index = k + N.z*(j + N.y*i);
                 Point p(x, y, z);
                 Cell_handle c = dt.locate(p, lt, li, lj);
                 
-                Tetrahedron t = dt.tetrahedron(c);
-                std::vector<int> vertices(4);
-                for (int i = 0; i < 4; ++i) {
-                    Point pt(t[i][0], t[i][1], t[i][2]);
-                    auto loc = std::find(pts.begin(), pts.end(), pt);
+                if (!dt.is_infinite(c)) {
+                    Tetrahedron t = dt.tetrahedron(c);
+                    Vertex_handle v = dt.nearest_vertex(p,c);
+                    Point x0(t[0][0], t[0][1], t[0][2]);
+                    auto loc_x0 = std::find(pts.begin(), pts.end(), x0) - pts.begin();
+                    if (c != c_prev) {
+                        for (int l = 1; l < 4; ++l) {
+                            Point xi(t[l][0], t[l][1], t[l][2]);
+                            auto loc_xi = std::find(pts.begin(), pts.end(), xi) - pts.begin();
+                            gsl_vector_set(difff, l - 1, n[loc_xi] - n[loc_x0]);
+                            for (int m = 0; m < 3; ++m) {
+                                gsl_matrix_set(coeff, l - 1, m, t[l][m] - t[0][m]);
+                            }
+                        }
+                        int s;
+                        gsl_linalg_LU_decomp(coeff, perm, &s);
+                        gsl_linalg_LU_solve(coeff, perm, difff, gradf);
+                    }
                     
-
-
+                    nden[index] = n[loc_x0];
+                    nden[index] += gsl_vector_get(gradf, 0)*(x - t[0][0]);
+                    nden[index] += gsl_vector_get(gradf, 1)*(y - t[0][1]);
+                    nden[index] += gsl_vector_get(gradf, 2)*(z - t[0][2]);
+                    
+                    c_prev = c;
+                } else {
+                    nden[index] = 0.0;
+                }
+            }
+        }
+    }
+    // Free the GSL structures
+    gsl_matrix_free(coeff);
+    gsl_vector_free(gradf);
+    gsl_vector_free(difff);
+    gsl_permutation_free(perm);
+}

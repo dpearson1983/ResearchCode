@@ -133,7 +133,7 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
         k_1.y *= -1;
         k_1.z *= -1;
         double4 dk_1 = dk3d[k_1.w];
-        double P_1 = (dk_1.x*dk_1.x + dk_1.y*dk_1.y - SN)*dk_1.w*dk_1.w;
+//         double P_1 = (dk_1.x*dk_1.x + dk_1.y*dk_1.y - SN)*dk_1.w*dk_1.w;
         for (int i = 0; i < N; ++i) {
             int4 k_2 = kvec[i];
             double4 dk_2 = dk3d[k_2.w];
@@ -146,12 +146,12 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
                 k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
                 double4 dk_3 = dk3d[k_3.w];
                 if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
-                    double P_2 = (dk_2.x*dk_2.x + dk_2.y*dk_2.y - SN)*dk_2.w*dk_2.w;
-                    double P_3 = (dk_3.x*dk_3.x + dk_3.y*dk_3.y - SN)*dk_3.w*dk_3.w;
+//                     double P_2 = (dk_2.x*dk_2.x + dk_2.y*dk_2.y - SN)*dk_2.w*dk_2.w;
+//                     double P_3 = (dk_3.x*dk_3.x + dk_3.y*dk_3.y - SN)*dk_3.w*dk_3.w;
                     double grid_cor = dk_1.w*dk_2.w*dk_3.w;
                     double val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
                     val *= grid_cor;
-                    val -= ((P_1 + P_2 + P_3)*mult + term);
+//                     val -= ((P_1 + P_2 + P_3)*mult + term);
                     int bin = getBkBin(dk_1.z, dk_2.z, dk_3.z, binWidth, numBins, k_lim.x);
                     atomicAdd(&Bk[bin], val);
                     atomicAdd(&N_tri[bin], 1);

@@ -51,7 +51,7 @@
 #include <fftw3.h>
 #include <omp.h>
 #include <pods.h>
-#include <harppi.h>
+// #include <harppi.h>
 #include <fileFuncs.h>
 #include "lognormal.h"
 
