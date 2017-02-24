@@ -51,5 +51,7 @@ template <typename T> class galaxy{
         T get_weight();
         
 };
+
+double rz(double red, double O_m, double O_L, gsl_integration_workspace *w);
         
 #endif
