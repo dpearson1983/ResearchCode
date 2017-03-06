@@ -114,13 +114,15 @@ __device__ int getBkBin(float k1, float k2, float k3, float d_binWidth, int d_nu
 //      8. numBins: The number of bispectrum bins for a single k (i.e. k_1)
 //      9. totBins: The total number of bins for the bispectrum, i.e. numBins^3
 //     10.   k_lim: The minimum (x) and maximum (y) k values to be binned
-__global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, float *Bk, int4 N_grid,
+__global__ void calcBkTile(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, float *Bk, int4 N_grid,
                        int N, float binWidth, int numBins, int totBins, float2 k_lim) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
     int xShift = N_grid.x/2;
     int yShift = N_grid.y/2;
     int zShift = N_grid.z/2;
+    
+    extern __shared__ int4 shk2[];
     
     if (tid < N) {
         int4 k_1 = k1[tid];
@@ -129,80 +131,37 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, fl
         k_1.z *= -1;
         float4 dk_1 = dk3d[k_1.w];
         int ik1 = (dk_1.z - k_lim.x)/binWidth;
-        for (int i = 0; i < N; ++i) {
-            int4 k_2 = k2[i];
-            float4 dk_2 = dk3d[k_2.w];
-            int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};
-            int i3, j3, k3;
-            i3 = k_3.x + xShift;
-            j3 = k_3.y + yShift;
-            k3 = k_3.z + zShift;
-            if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
-                k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
-                float4 dk_3 = dk3d[k_3.w];
-                if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
-                    float grid_cor = dk_1.w*dk_2.w*dk_3.w;
-                    float val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
-                    val *= grid_cor;
-                    int ik2 = (dk_2.z - k_lim.x)/binWidth;
-                    int ik3 = (dk_3.z - k_lim.x)/binWidth;
-                    int bin = ik3 + numBins*(ik2 + numBins*ik1);
-                    atomicAdd(&Bk[bin], val);
-                    atomicAdd(&N_tri[bin], 1);
+        for (int i = 0, tile = 0; i < N; i += 1024, ++tile) {
+            int idx = = tile*blockDim.x + threadIdx.x;
+            shk2[threadIdx.x] = k2[idx];
+            __syncthreads();
+            for (int j = 0; j < 1024; ++j) {
+                int4 k_2 = shk2[j];
+                float4 dk_2 = dk3d[k_2.w];
+                int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};
+                int i3, j3, k3;
+                i3 = k_3.x + xShift;
+                j3 = k_3.y + yShift;
+                k3 = k_3.z + zShift;
+                if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
+                    k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
+                    float4 dk_3 = dk3d[k_3.w];
+                    if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
+                        float grid_cor = dk_1.w*dk_2.w*dk_3.w;
+                        float val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
+                        val *= grid_cor;
+                        int ik2 = (dk_2.z - k_lim.x)/binWidth;
+                        int ik3 = (dk_3.z - k_lim.x)/binWidth;
+                        int bin = ik3 + numBins*(ik2 + numBins*ik1);
+                        atomicAdd(&Bk[bin], val);
+                        atomicAdd(&N_tri[bin], 1);
+                    }
                 }
             }
+            __syncthreads();
         }
     }
 }
-
-// __global__ void calcBkTile(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, float *Bk, int4 N_grid,
-//                        int N, float binWidth, int numBins, int totBins, float2 k_lim) {
-//     int tid = threadIdx.x + blockIdx.x*blockDim.x;
-//     
-//     int xShift = N_grid.x/2;
-//     int yShift = N_grid.y/2;
-//     int zShift = N_grid.z/2;
-//     
-//     extern __shared__ int4 shk2[];
-//     
-//     if (tid < N) {
-//         int4 k_1 = k1[tid];
-//         k_1.x *= -1;
-//         k_1.y *= -1;
-//         k_1.z *= -1;
-//         float4 dk_1 = dk3d[k_1.w];
-//         int ik1 = (dk_1.z - k_lim.x)/binWidth;
-//         for (int i = 0, tile = 0; i < N; i += 1024, ++tile) {
-//             int idx = = tile*blockDim.x + threadIdx.x;
-//             shk2[threadIdx.x] = k2[idx];
-//             __syncthreads();
-//             for (int j = 0; j < 1024; ++j) {
-//                 int4 k_2 = shk2[j];
-//                 float4 dk_2 = dk3d[k_2.w];
-//                 int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};
-//                 int i3, j3, k3;
-//                 i3 = k_3.x + xShift;
-//                 j3 = k_3.y + yShift;
-//                 k3 = k_3.z + zShift;
-//                 if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
-//                     k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
-//                     float4 dk_3 = dk3d[k_3.w];
-//                     if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
-//                         float grid_cor = dk_1.w*dk_2.w*dk_3.w;
-//                         float val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
-//                         val *= grid_cor;
-//                         int ik2 = (dk_2.z - k_lim.x)/binWidth;
-//                         int ik3 = (dk_3.z - k_lim.x)/binWidth;
-//                         int bin = ik3 + numBins*(ik2 + numBins*ik1);
-//                         atomicAdd(&Bk[bin], val);
-//                         atomicAdd(&N_tri[bin], 1);
-//                     }
-//                 }
-//             }
-//             __syncthreads();
-//         }
-//     }
-// }
 
 // This function normalizes the bispectrum measurements
 __global__ void normBk(unsigned int *N_tri, float *Bk, float norm, int d_totBins) {
@@ -462,7 +421,7 @@ int main(int argc, char *argv[]) {
         float elapsedTime;
         cudaEventCreate(&begin);
         cudaEventRecord(begin, 0);
-        calcBk<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k1, d_k2, d_Ntri, d_Bk, N_grid, num_k_vecs, 
+        calcBkTile<<<num_blocks, num_gpu_threads,16384>>>(d_dk3d, d_k1, d_k2, d_Ntri, d_Bk, N_grid, num_k_vecs, 
                                                 grid_space, num_bk_bins, tot_bk_bins, d_klim);
         cudaEventCreate(&end);
         cudaEventRecord(end, 0);

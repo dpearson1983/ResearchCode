@@ -21,3 +21,7 @@ shell: bispecGPUShell.cu source/fileReader.cpp
 mock: bispecGPUMock.cu
 	mkdir -p $(HOME)/bin
 	$(NVXX) $(NVXXFLAGS) -o $(HOME)/bin/bispecGPUMock bispecGPUMock.cu
+
+mockTile: bispecGPUMockTile.cu
+	mkdir -p $(HOME)/bin
+	$(NVXX) $(NVXXFLAGS) -o $(HOME)/bin/bispecGPUMockTile bispecGPUMockTile.cu
