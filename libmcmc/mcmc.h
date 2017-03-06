@@ -46,8 +46,6 @@ template <typename T> class mcmc{
     // the function implementation is written in the code using the library.
     double model(T x, std::vector<double> mod_params, void *params = NULL);
     
-//     virtual double model(std::vector<double> &x, std::vector<double> &mod_params, void *params = NULL);
-    
     public:
         // Initialize the mcmc object with independent variables, data, inverse covariance, and number of parameters
         mcmc(std::vector<T> xvals, std::vector<double> data, std::vector<double> Psi, int numParams, int chains);
@@ -72,6 +70,10 @@ template <typename T> class mcmc{
         void marginalize();
         
         void print();
+        
+        void calc_param_covar();
+        
+        void write_param_covar(std::string file);
         
 };
 
@@ -426,8 +428,7 @@ template <typename T> void mcmc<T>::get_mle_params(std::vector<double> &pars) {
 }
 
 template <typename T> double mcmc<T>::get_chisq(std::vector<double> &pars, void *params) {
-    std::vector<double> mod_vals(mcmc<T>::N);
-    mcmc<T>::calc_model(mod_vals, pars, params);
+    std::vector<double> mod_vals = mcmc<T>::calc_model(pars, params);
     return mcmc<T>::chisq(mod_vals);
 }
 
@@ -438,6 +439,41 @@ template <typename T> void mcmc<T>::marginalize() {
 template <typename T> void mcmc<T>::print() {
     for (int i = 0; i < mcmc<T>::N; ++i)
         std::cout << mcmc<T>::x_vals[i] << " " << mcmc<T>::data_vals[i] << std::endl;
+}
+
+template <typename T> void mcmc<T>::calc_param_covar() {
+    int all_reals = 0;
+    std::vector<double> final_avg(mcmc<T>::N_p);
+    mcmc<T>::get_mle_params(final_avg);
+    for (int i = 0; i < mcmc<T>::chains; ++i) {
+        all_reals += mcmc<T>::total_draws[i];
+    }
+    
+    for (int chain = 0; chain < mcmc<T>::chains; ++chain) {
+        for (int real = 0; real < mcmc<T>::total_draws[chain]; ++real) {
+            for (int i = 0; i < mcmc<T>::N_p; ++i) {
+                for (int j = 0; j < mcmc<T>::N_p; ++j) {
+                    mcmc<T>::param_covar[i][j] += ((mcmc<T>::reals[chain][real][i] - final_avg[i])*
+                                                  (mcmc<T>::reals[chain][real][j] - final_avg[j]))/
+                                                  (all_reals - 1.0);
+                }
+            }
+        }
+    }
+}
+
+template <typename T> void mcmc<T>::write_param_covar(std::string file) {
+    std::ofstream fout;
+    fout.open(file.c_str(), std::ios::out);
+    fout.precision(15);
+    for (int i = 0; i < mcmc<T>::N_p; ++i) {
+        for (int j = 0; j < mcmc<T>::N_p; ++j) {
+            fout.width(25);
+            fout << mcmc<T>::param_covar[i][j];
+        }
+        fout << "\n";
+    }
+    fout.close();
 }
 
 #endif

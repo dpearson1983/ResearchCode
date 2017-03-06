@@ -59,7 +59,7 @@ int kMatch(double ks, std::vector<double> &kb, double L) {
 }
 
 // Finds the bispectrum bin for a k_1, k_2, k_3 triplet
-__device__ int getBkBin(double k1, double k2, double k3, double d_binWidth, int d_numBins, double kmin) {
+__device__ int getBkBin(float k1, float k2, float k3, double d_binWidth, int d_numBins, float kmin) {
 /*    if (k1 > k2) {
         double temp = k1;
         k1 = k2;
@@ -118,9 +118,9 @@ __device__ double atomicAdd(double* address, double val)
 //     10.   k_lim: The minimum (x) and maximum (y) k values to be binned
 //     11.      SN: The power spectrum shotnoise
 //     12.    term: The extra term needed for the bispectrum shotnoise calculation
-__global__ void calcBk(double4 *dk3d, int4 *k1s, int4 *k2s, unsigned int *N_tri, double *Bk, int4 N_grid,
-                       int Nk1, int Nk2, double binWidth, int numBins, int totBins, double2 k_lim,
-                       double SN, double term, double mult) {
+__global__ void calcBk(float4 *dk3d, int4 *k1s, int4 *k2s, unsigned int *N_tri, float *Bk, int4 N_grid,
+                       int Nk1, int Nk2, double binWidth, int numBins, int totBins, float2 k_lim,
+                       float SN, float term, float mult) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
     int xShift = N_grid.x/2;
@@ -133,11 +133,11 @@ __global__ void calcBk(double4 *dk3d, int4 *k1s, int4 *k2s, unsigned int *N_tri,
         k_1.x *= -1;
         k_1.y *= -1;
         k_1.z *= -1;
-        double4 dk_1 = dk3d[k_1.w];
+        float4 dk_1 = dk3d[k_1.w];
 //         double P_1 = fma(dk_1.x, dk_1.x, fma(dk_1.y, dk_1.y, SN))*dk_1.w*dk_1.w;
         for (int i = 0; i < Nk2; ++i) {
             int4 k_2 = k2s[i];
-            double4 dk_2 = dk3d[k_2.w];
+            float4 dk_2 = dk3d[k_2.w];
             int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};
             int i3, j3, k3;
             i3 = k_3.x + xShift;
@@ -145,12 +145,12 @@ __global__ void calcBk(double4 *dk3d, int4 *k1s, int4 *k2s, unsigned int *N_tri,
             k3 = k_3.z + zShift;
             if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
                 k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
-                double4 dk_3 = dk3d[k_3.w];
+                float4 dk_3 = dk3d[k_3.w];
                 if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
 //                     double P_2 = fma(dk_2.x, dk_2.x, fma(dk_2.y, dk_2.y, SN))*dk_2.w*dk_2.w;
 //                     double P_3 = fma(dk_3.x, dk_3.x, fma(dk_3.y, dk_3.y, SN))*dk_3.w*dk_3.w;
-                    double grid_cor = dk_1.w*dk_2.w*dk_3.w;
-                    double val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
+                    float grid_cor = dk_1.w*dk_2.w*dk_3.w;
+                    float val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
                     val *= grid_cor;
 //                     val -= ((P_1 + P_2 + P_3)*mult + term);
                     int bin = (dk_3.z - k_lim.x)/binWidth;
@@ -163,7 +163,7 @@ __global__ void calcBk(double4 *dk3d, int4 *k1s, int4 *k2s, unsigned int *N_tri,
 }
 
 // This function normalizes the bispectrum measurements
-__global__ void normBk(unsigned int *N_tri, double *Bk, double norm, int d_totBins) {
+__global__ void normBk(unsigned int *N_tri, float *Bk, float norm, int d_totBins) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
     if (tid < d_totBins && N_tri[tid] > 0) {
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
     vec3<int> N = {p.geti("Nx"), p.geti("Ny"), p.geti("Nz")};
     vec3<double> Delta_k = {double(2.0*pi)/L.x, double(2.0*pi)/L.y, double(2.0*pi)/L.z};
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
-    double2 k_lim = {p.getd("k_min"), p.getd("k_max")};
+    float2 k_lim = {p.getd("k_min"), p.getd("k_max")};
     double *nden_gal, *nden_ran;
     
     std::vector<std::string> hdus(2);
@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
     
     std::vector<int4> k1s;
     std::vector<int4> k2s;
-    double4 *dk3d = new double4[N_grid.w];
+    float4 *dk3d = new float4[N_grid.w];
     
     for (int i = 0; i < N_grid.w; ++i) {
         dk3d[i].x = 0.0;
@@ -368,10 +368,10 @@ int main(int argc, char *argv[]) {
     gpuMem += numK2s*sizeof(int4);
     
     // Allocate memory on GPU for the small delta(k) cube
-    double4 *d_dk3d;
-    cudaMalloc((void **)&d_dk3d, N_grid.w*sizeof(double4));
+    float4 *d_dk3d;
+    cudaMalloc((void **)&d_dk3d, N_grid.w*sizeof(float4));
     std::cout << "cudaMalloc d_dk3d: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-    gpuMem += N_grid.w*sizeof(double4);
+    gpuMem += N_grid.w*sizeof(float4);
     
     // Determine the size of the grid needed to store B(k) values
 //     double gridSpace = Delta_k.x;
@@ -383,11 +383,11 @@ int main(int argc, char *argv[]) {
     double gridSpace = Delta_k.x;
     
     // Allocate memory on the GPU and host to store B(k)
-    double *Bk = new double[totBins];
-    double *d_Bk;
-    cudaMalloc((void **)&d_Bk, totBins*sizeof(double));
+    float *Bk = new float[totBins];
+    float *d_Bk;
+    cudaMalloc((void **)&d_Bk, totBins*sizeof(float));
     std::cout << "cudaMalloc d_Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-    gpuMem += totBins*sizeof(double);
+    gpuMem += totBins*sizeof(float);
     
     // Allocate memory on the GPU and host to store the number of triangles per bin
     unsigned int *Ntri = new unsigned int[totBins];
@@ -404,11 +404,11 @@ int main(int argc, char *argv[]) {
     }
     
     std::cout << "Initializing things on the GPU..." << std::endl;
-    cudaMemcpy(d_Bk, Bk, totBins*sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Bk, Bk, totBins*sizeof(float), cudaMemcpyHostToDevice);
     std::cout << "cudaMemcpy d_Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
     cudaMemcpy(d_Ntri, Ntri, totBins*sizeof(unsigned int), cudaMemcpyHostToDevice);
     std::cout << "cudaMemcpy d_Ntri: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-    cudaMemcpy(d_dk3d, dk3d, N_grid.w*sizeof(double4), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_dk3d, dk3d, N_grid.w*sizeof(float4), cudaMemcpyHostToDevice);
     std::cout << "cudaMemcpy d_dk3d: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
     cudaMemcpy(d_k1s, &k1s[0], numK1s*sizeof(int4), cudaMemcpyHostToDevice);
     std::cout << "cudaMemcpy d_k1s: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
     
     int numThreads = p.geti("numThreads");
     int numBlocks = ceil(numK1s/p.getd("numThreads"));
-    double term = galbk_nbw.x - alpha*alpha*alpha*ranbk_nbw.x;
+    float term = galbk_nbw.x - alpha*alpha*alpha*ranbk_nbw.x;
     std::cout << "Additional shotnoise term: " << term << std::endl;
     
     cudaEvent_t begin, end;
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
     cudaEventCreate(&begin);
     cudaEventRecord(begin, 0);
     calcBk<<<numBlocks, numThreads>>>(d_dk3d, d_k1s, d_k2s, d_Ntri, d_Bk, N_grid, numK1s, numK2s, gridSpace,
-                                      numKBins, totBins, k_lim, shotnoise, term, galbk_nbw.y);
+                                      numKBins, totBins, k_lim, shotnoise, term, float(galbk_nbw.y));
     cudaEventCreate(&end);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
@@ -443,7 +443,7 @@ int main(int argc, char *argv[]) {
     cudaEventElapsedTime(&elapsedTime, begin, end);
     std::cout << "Time to normalize bispectrum: " << elapsedTime << " ms" << std::endl;
     
-    cudaMemcpy(Bk, d_Bk, totBins*sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Bk, d_Bk, totBins*sizeof(float), cudaMemcpyDeviceToHost);
     std::cout << "cudaMemcpy Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
     cudaMemcpy(Ntri, d_Ntri, totBins*sizeof(unsigned int), cudaMemcpyDeviceToHost);
     std::cout << "cudaMemcpy Ntri: " << cudaGetErrorString(cudaGetLastError()) << std::endl;

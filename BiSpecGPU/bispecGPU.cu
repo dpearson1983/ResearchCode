@@ -134,6 +134,7 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
         k_1.z *= -1;
         double4 dk_1 = dk3d[k_1.w];
 //         double P_1 = (dk_1.x*dk_1.x + dk_1.y*dk_1.y - SN)*dk_1.w*dk_1.w;
+#pragma unroll 32
         for (int i = 0; i < N; ++i) {
             int4 k_2 = kvec[i];
             double4 dk_2 = dk3d[k_2.w];

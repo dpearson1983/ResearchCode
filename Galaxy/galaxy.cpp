@@ -214,5 +214,31 @@ template <typename T> T galaxy<T>::get_weight() {
     return galaxy<T>::w;
 }
 
+template <typename T> void galaxy<T>::set(T val, std::string key) {
+    if (key == "ra" || key == "RA") galaxy<T>::ra = val;
+    else if (key == "dec" || key == "DEC") galaxy<T>::dec = val;
+    else if (key == "red" || key == "RED") galaxy<T>::dec = val;
+    else if (key == "x" || key == "X") galaxy<T>::x = val;
+    else if (key == "y" || key == "Y") galaxy<T>::y = val;
+    else if (key == "z" || key == "Z") galaxy<T>::z = val;
+    else if (key == "w" || key == "W") galaxy<T>::w = val;
+    else if (key == "nbar" || key == "NBAR") galaxy<T>::nbar = val;
+    else if (key == "bias" || key == "BIAS") galaxy<T>::bias = val;
+    else {
+        std::cout << "ERROR: No matching data member for " << key << std::endl;
+        std::cout << "       Allowed values are:" << std::endl;
+        std::cout << "          ra or RA   for right ascension" << std::endl;
+        std::cout << "         dec or DEC  for declination" << std::endl;
+        std::cout << "         red or RED  for redshift" << std::endl;
+        std::cout << "           x or X    for x Cartesian coordinate" << std::endl;
+        std::cout << "           y or Y    for y Cartesian coordinate" << std::endl;
+        std::cout << "           z or Z    for z Cartesian coordinate" << std::endl;
+        std::cout << "           w or W    for the galaxy weight" << std::endl;
+        std::cout << "        nbar or NBAR for the redshift dependent number density" << std::endl;
+        std::cout << "        bias or BIAS for the galaxy bias" <<std::endl;
+        throw std::runtime_error("ERROR: Could not assign value");
+    }
+}
+
 template class galaxy<double>;
 template class galaxy<float>;

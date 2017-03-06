@@ -50,6 +50,8 @@ template <typename T> class galaxy{
         
         T get_weight();
         
+        void set(T val, std::string key);
+        
 };
 
 double rz(double red, double O_m, double O_L, gsl_integration_workspace *w);

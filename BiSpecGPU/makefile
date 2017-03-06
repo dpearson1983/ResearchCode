@@ -17,3 +17,7 @@ shell: bispecGPUShell.cu source/fileReader.cpp
 	mkdir -p $(HOME)/bin
 	$(CXX) $(CXXFLAGS) -c -o fileReader.o source/fileReader.cpp
 	$(NVXX) $(NVXXFLAGS) -o $(HOME)/bin/bispecGPUShell bispecGPUShell.cu fileReader.o
+	
+mock: bispecGPUMock.cu
+	mkdir -p $(HOME)/bin
+	$(NVXX) $(NVXXFLAGS) -o $(HOME)/bin/bispecGPUMock bispecGPUMock.cu
