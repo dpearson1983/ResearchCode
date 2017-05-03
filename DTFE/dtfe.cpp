@@ -3,6 +3,7 @@
 #include <iterator>
 #include <cassert>
 #include <algorithm>
+#include <omp.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
@@ -33,50 +34,60 @@ void interpDTFE(std::vector<galaxy<double>> &gals, vec3<double> r_min, vec3<doub
     // number density.
     int numPts = gals.size();
     std::vector<Point> pts;
-//     std::vector<double> n;
-//     n.reserve(numPts);
+    std::vector<double> n(numPts);
     
     // Populate the vector of Points, and initialize the number densities.
+    std::cout << "Populating points...." << std::endl;
     for (int i = 0; i < numPts; ++i) {
         vec3<double> gal = gals[i].get_cart();
         Point p_temp(gal.x, gal.y, gal.z);
         pts.push_back(p_temp);
-//         n[i] = 0.0;
+        n[i] = 0.0;
     }
     
     // Find the Delaunay Tessellation and make sure it's valid
+    std::cout << "Creating tessellation..." << std::endl;
     Delaunay dt(pts.begin(), pts.end());
     assert(dt.is_valid());
     
     // Loop over all the galaxies, find the all cells which have a galaxy as a vertex, sum the volume
     // and then estimate the overdensity as 4/V_sum, where the factor of 4 comes from the fact that
     // each cell's volume will be counted four times (once for each vertex).
-//     for (int i = 0; i < numPts; ++i) {
-//         Vertex_handle v = dt.nearest_vertex(pts[i]);
-//         std::vector<Cell_handle> c;
-//         dt.incident_cells(v, std::back_inserter(c));
-//         double Vol = 0.0;
-//         int numCells = c.size();
-//         for (int j = 0; j < numCells; ++j) {
-//             if (!dt.is_infinite(c[j])) {
-//                 Tetrahedron t = dt.tetrahedron(c[j]);
-//                 Vol += CGAL::volume(t[0], t[1], t[2], t[3]);
-//             }
-//         }
-//         n[i] = (4.0*gals[i].get_weight())/Vol;
-//     }
+    std::cout << "Calculating number densities..." << std::endl;
+    for (int i = 0; i < numPts; ++i) {
+        Vertex_handle v = dt.nearest_vertex(pts[i]);
+        std::vector<Cell_handle> c;
+        dt.incident_cells(v, std::back_inserter(c));
+        double Vol = 0.0;
+        int numCells = c.size();
+        for (int j = 0; j < numCells; ++j) {
+            if (!dt.is_infinite(c[j])) {
+                Tetrahedron t = dt.tetrahedron(c[j]);
+                Vol += CGAL::volume(t[0], t[1], t[2], t[3]);
+            }
+        }
+        n[i] = (4.0*gals[i].get_weight())/Vol;
+    }
     
     // Loop over all grid points, locate the tetrahedron that a grid point falls into as well as the
     // nearest vertex. The nearest vertex becomes x_0, while the remaining 3 points become x_1, x_2, and
     // x_3. Locate the associated number densities, setup matrices and vectors to solve for the components
     // of the gradient, then interpolate the field to the grid point.
-    gsl_matrix *coeff = gsl_matrix_alloc(3,3);
-    gsl_vector *gradf = gsl_vector_alloc(3);
-    gsl_vector *difff = gsl_vector_alloc(3);
-    gsl_permutation *perm = gsl_permutation_alloc(3);
-    Cell_handle c_prev; // To check for possible data reuse
+//     gsl_matrix *coeff = gsl_matrix_alloc(3,3);
+//     gsl_vector *gradf = gsl_vector_alloc(3);
+//     gsl_vector *difff = gsl_vector_alloc(3);
+//     gsl_permutation *perm = gsl_permutation_alloc(3);
+//     Cell_handle c_prev; // To check for possible data reuse
+    std::cout << "Interpolating to grid..." << std::endl;
+// #pragma omp parallel for
     for (int i = 0; i < N.x; ++i) {
+        gsl_matrix *coeff = gsl_matrix_alloc(3,3);
+        gsl_vector *gradf = gsl_vector_alloc(3);
+        gsl_vector *difff = gsl_vector_alloc(3);
+        gsl_permutation *perm = gsl_permutation_alloc(3);
+        Cell_handle c_prev; // To check for possible data reuse
         double x = r_min.x + (i + 0.5)*dr.x;
+        if (omp_get_thread_num() == 0) std::cout << "Percent complete: " << (double(i)/double(N.x))*100.0 << "%" << std::endl;
         for (int j = 0; j < N.y; ++j) {
             double y = r_min.y + (j + 0.5)*dr.y;
             for (int k = 0; k < N.z; ++k) {
@@ -89,7 +100,6 @@ void interpDTFE(std::vector<galaxy<double>> &gals, vec3<double> r_min, vec3<doub
                 
                 if (!dt.is_infinite(c)) {
                     Tetrahedron t = dt.tetrahedron(c);
-                    Vertex_handle v = dt.nearest_vertex(p,c);
                     Point x0(t[0][0], t[0][1], t[0][2]);
                     auto loc_x0 = std::find(pts.begin(), pts.end(), x0) - pts.begin();
                     if (c != c_prev) {
@@ -117,10 +127,15 @@ void interpDTFE(std::vector<galaxy<double>> &gals, vec3<double> r_min, vec3<doub
                 }
             }
         }
+        // Free the GSL structures
+        gsl_matrix_free(coeff);
+        gsl_vector_free(gradf);
+        gsl_vector_free(difff);
+        gsl_permutation_free(perm);
     }
-    // Free the GSL structures
-    gsl_matrix_free(coeff);
-    gsl_vector_free(gradf);
-    gsl_vector_free(difff);
-    gsl_permutation_free(perm);
+//     // Free the GSL structures
+//     gsl_matrix_free(coeff);
+//     gsl_vector_free(gradf);
+//     gsl_vector_free(difff);
+//     gsl_permutation_free(perm);
 }

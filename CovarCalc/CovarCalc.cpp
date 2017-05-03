@@ -1,4 +1,4 @@
-/* CovarCalc.cpp v1
+/* CovarCalc.cpp v2
  * David W. Pearson
  * 3/10/2016
  * 

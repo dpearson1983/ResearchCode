@@ -132,10 +132,13 @@ __global__ void calcBkTile(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri
         float4 dk_1 = dk3d[k_1.w];
         int ik1 = (dk_1.z - k_lim.x)/binWidth;
         for (int i = 0, tile = 0; i < N; i += 1024, ++tile) {
-            int idx = = tile*blockDim.x + threadIdx.x;
+            int idx = tile*blockDim.x + threadIdx.x;
             shk2[threadIdx.x] = k2[idx];
             __syncthreads();
-            for (int j = 0; j < 1024; ++j) {
+            int stop;
+            if (N - tile*blockDim.x > 1024) stop = 1024;
+            else stop = N - tile*blockDim.x;
+            for (int j = 0; j < stop; ++j) {
                 int4 k_2 = shk2[j];
                 float4 dk_2 = dk3d[k_2.w];
                 int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};

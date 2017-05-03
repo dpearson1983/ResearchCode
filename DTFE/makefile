@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -lgalaxy -lmpfr -lgmp -lCGAL -lgsl -lgslcblas -lm -march=native -mtune=native -O3
+CXXFLAGS = -lgalaxy -lmpfr -lgmp -lCGAL -lgsl -lgslcblas -lm -fopenmp -march=native -O3
 DEPS = dtfe.h
 
 build: dtfe.cpp
