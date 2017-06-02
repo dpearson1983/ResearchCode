@@ -72,6 +72,22 @@ std::string filename(std::string base, int digits, int num, std::string ext) {
     return file.str();
 }
 
+#if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ > 600
+#else
+__device__ double atomicAdd(double* address, double val)
+{
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed, 
+                        __double_as_longlong(val + 
+                        __longlong_as_double(assumed)));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+}
+#endif
+
 // Finds the bispectrum bin for a k_1, k_2, k_3 triplet
 __device__ int getBkBin(float k1, float k2, float k3, float d_binWidth, int d_numBins, float kmin) {
 /*    if (k1 > k2) {
@@ -114,7 +130,7 @@ __device__ int getBkBin(float k1, float k2, float k3, float d_binWidth, int d_nu
 //      8. numBins: The number of bispectrum bins for a single k (i.e. k_1)
 //      9. totBins: The total number of bins for the bispectrum, i.e. numBins^3
 //     10.   k_lim: The minimum (x) and maximum (y) k values to be binned
-__global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, float *Bk, int4 N_grid,
+__global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, double *Bk, int4 N_grid,
                        int N, float binWidth, int numBins, int totBins, float2 k_lim) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
@@ -142,7 +158,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, fl
                 float4 dk_3 = dk3d[k_3.w];
                 if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
                     float grid_cor = dk_1.w*dk_2.w*dk_3.w;
-                    float val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
+                    double val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
                     val *= grid_cor;
                     int ik2 = (dk_2.z - k_lim.x)/binWidth;
                     int ik3 = (dk_3.z - k_lim.x)/binWidth;
@@ -205,7 +221,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, fl
 // }
 
 // This function normalizes the bispectrum measurements
-__global__ void normBk(unsigned int *N_tri, float *Bk, float norm, int d_totBins) {
+__global__ void normBk(unsigned int *N_tri, double *Bk, float norm, int d_totBins) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
     if (tid < d_totBins && N_tri[tid] > 0) {
@@ -420,15 +436,15 @@ int main(int argc, char *argv[]) {
         std::cout << "    cudaMalloc d_dk3d: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         gpu_mem += N_grid.w*sizeof(float4);
         
-        float grid_space = p.getd("bin_scale")*dk.x;
+        float grid_space = 0.008;
         int num_bk_bins = ceil((k_lim.y - k_lim.x)/grid_space);
         int tot_bk_bins = num_bk_bins*num_bk_bins*num_bk_bins;
         
-        float *Bk = new float[tot_bk_bins];
-        float *d_Bk;
-        cudaMalloc((void **)&d_Bk, tot_bk_bins*sizeof(float));
+        double *Bk = new double[tot_bk_bins];
+        double *d_Bk;
+        cudaMalloc((void **)&d_Bk, tot_bk_bins*sizeof(double));
         std::cout << "    cudaMalloc d_Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        gpu_mem += tot_bk_bins*sizeof(float);
+        gpu_mem += tot_bk_bins*sizeof(double);
         
         unsigned int *Ntri = new unsigned int[tot_bk_bins];
         unsigned int *d_Ntri;
@@ -444,7 +460,7 @@ int main(int argc, char *argv[]) {
         }
         
         std::cout << "    Copying data to the GPU..." << std::endl;
-        cudaMemcpy(d_Bk, Bk, tot_bk_bins*sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_Bk, Bk, tot_bk_bins*sizeof(double), cudaMemcpyHostToDevice);
         std::cout << "    cudaMemcpy d_Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         cudaMemcpy(d_Ntri, Ntri, tot_bk_bins*sizeof(unsigned int), cudaMemcpyHostToDevice);
         std::cout << "    cudaMemcpy d_Ntri: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
@@ -481,13 +497,13 @@ int main(int argc, char *argv[]) {
         cudaEventElapsedTime(&elapsedTime, begin, end);
         std::cout << "Time to normalize bispectrum: " << elapsedTime << " ms" << std::endl;
         
-        cudaMemcpy(Bk, d_Bk, tot_bk_bins*sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(Bk, d_Bk, tot_bk_bins*sizeof(double), cudaMemcpyDeviceToHost);
         std::cout << "    cudaMemcpy Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         cudaMemcpy(Ntri, d_Ntri, tot_bk_bins*sizeof(unsigned int), cudaMemcpyDeviceToHost);
         std::cout << "    cudaMemcpy Ntri: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         
         fout.open(bk_file.c_str(), std::ios::out);
-        fout.precision(15);
+//         fout.precision(15);
         for (int i = 0; i < num_bk_bins; ++i) {
             double k1 = k_lim.x + (i + 0.5)*grid_space;
             for (int j = 0; j < num_bk_bins; ++j) {
@@ -496,7 +512,7 @@ int main(int argc, char *argv[]) {
                     double k3 = k_lim.x + (k + 0.5)*grid_space;
                     int bin = k + num_bk_bins*(j + num_bk_bins*i);
                     
-                    fout << k1 << " " << k2 << " " << k3 << " " << Bk[bin] << " " << Ntri[bin] << "\n";
+                    fout << std::setprecision(3) << k1 << " " << k2 << " " << k3 << " " << std::setprecision(15) << Bk[bin] << " " << Ntri[bin] << "\n";
                 }
             }
         }
