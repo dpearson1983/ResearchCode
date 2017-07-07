@@ -198,7 +198,7 @@ int main(int argc, char *argv[]) {
     if (p.getb("dynamicGrid")) {
         start = omp_get_wtime();
         nbar_ran = readFits(p.gets("randomsFile"), hdus, 1, nden_ran, p.getd("resolution"), L, N, r_min,
-                            ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::NGP,
+                            ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::CIC,
                             p.getd("Omega_M"), p.getd("Omega_L"), p.getd("z_min"), p.getd("z_max"));
         std::cout << "    Time to read in and bin randoms: " << omp_get_wtime() - start << " s" 
         << std::endl;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
         N.z = p.geti("Nz");
         start = omp_get_wtime();
         nbar_ran = readFits(p.gets("randomsFile"), hdus, 1, nden_ran, L, N, r_min,
-                            ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::NGP,
+                            ranpk_nbw, ranbk_nbw, p.getd("P_w"), galFlags::INPUT_WEIGHT|galFlags::CIC,
                             p.getd("Omega_M"), p.getd("Omega_L"), p.getd("z_min"), p.getd("z_max"));
         std::cout << "    Time to read in and bin randoms: " << omp_get_wtime() - start << " s" 
         << std::endl;
@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
     
     start = omp_get_wtime();
     double nbar_gal = readFits(p.gets("galaxyFile"), hdus, 1, nden_gal, L, N, r_min, galpk_nbw, galbk_nbw, p.getd("P_w"),
-             galFlags::INPUT_WEIGHT|galFlags::NGP, p.getd("Omega_M"), p.getd("Omega_L"), 
+             galFlags::INPUT_WEIGHT|galFlags::CIC, p.getd("Omega_M"), p.getd("Omega_L"), 
              p.getd("z_min"), p.getd("z_max"));
     std::cout << "    Time to read in and bin galaxys: " << omp_get_wtime() - start << std::endl;
     
@@ -262,7 +262,7 @@ int main(int argc, char *argv[]) {
     vec2<double> klim = {k_lim.x, k_lim.y};
     powerspec<double> Pk(p.geti("numKVals"), klim, 0);
     std::cout << "Calculating power spectrum..." << std::endl;
-    Pk.calc(delta, L, N, klim, shotnoise, p.gets("wisdomFile"), pkFlags::GRID_COR|pkFlags::NGP|pkFlags::C2C);
+    Pk.calc(delta, L, N, klim, shotnoise, p.gets("wisdomFile"), pkFlags::GRID_COR|pkFlags::CIC|pkFlags::C2C);
     std::cout << "Normalizing power spectrum..." << std::endl;
     Pk.norm(galpk_nbw.z, 0);
     Pk.print();
