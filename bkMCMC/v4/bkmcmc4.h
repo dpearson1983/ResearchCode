@@ -415,7 +415,7 @@ bool bkmcmc::trial(float3 *ks, double *Bk, double &L, double &R) {
 
 void bkmcmc::write_theta_screen() {
     std::cout.precision(6);
-    for (int i = 0; i < bkmcmc::num_pars; ++i) {
+    for (int i = 0; i < 5; ++i) {
         std::cout.width(15);
         std::cout << bkmcmc::theta_0[i];
     }
