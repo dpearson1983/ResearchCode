@@ -214,14 +214,10 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
                     + d_p[7]*k1 + d_p[7]*k2 + d_p[7]*k3
                     + d_p[8] + d_p[9]/k1 + d_p[9]/k2 + d_p[9]/k3 + d_p[10]/(k1*k2) + d_p[10]/(k1*k3) 
                     + d_p[10]/(k2*k3) + d_p[11]/(k1*k1) + d_p[11]/(k2*k2) + d_p[11]/(k3*k3);
-                    
-    double Bbao = 2.0*(Z2k12*Z1k1*Z1k2*P1bao*P2bao + Z2k23*Z1k2*Z1k3*P2bao*P3bao + 
-                  Z2k31*Z1k3*Z1k1*P3bao*P1bao);
     
-    double Bnw = 2.0*(Z2k12*Z1k1*Z1k2*P1nw*P2nw + Z2k23*Z1k2*Z1k3*P2nw*P3nw + 
-                  Z2k31*Z1k3*Z1k1*P3nw*P1nw);
-    
-    return Bbao/Bnw + smooth;
+    return (Z2k12*Z1k1*Z1k2*P1bao*P2bao + Z2k23*Z1k2*Z1k3*P2bao*P3bao + 
+                  Z2k31*Z1k3*Z1k1*P3bao*P1bao)/(Z2k12*Z1k1*Z1k2*P1nw*P2nw + Z2k23*Z1k2*Z1k3*P2nw*P3nw + 
+                  Z2k31*Z1k3*Z1k1*P3nw*P1nw) + smooth;
 }
 
 // GPU kernel to calculate the bispectrum model. This kernel uses a fixed 32-point Gaussian quadrature
