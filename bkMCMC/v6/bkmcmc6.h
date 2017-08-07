@@ -35,7 +35,7 @@ __constant__ float4 d_Pk[128]; //  16384 bytes
 // __constant__ float4 d_Pknw[128];  //  16384 bytes
 __constant__ float d_wi[32];   //   1024 bytes
 __constant__ float d_xi[32];   //   1024 bytes
-__constant__ float d_p[24];     //    768 bytes
+__constant__ float d_p[12];     //    768 bytes
        // total constant memory:   35584 bytes out of 65536 bytes
 
 const float w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
@@ -185,10 +185,11 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float Z2k31 = (0.5*d_p[1] + d_p[0]*F31 + d_p[2]*mu31p*mu31p*G31 + 
                    0.5*d_p[2]*mu31p*k31*((mu3*Z1k1)/k3 + (mu1*Z1k3)/k1));
     
-    double smooth = d_p[5]*k1*k1 + d_p[6]*k2*k2 + d_p[7]*k3*k3 + d_p[8]*k1*k2 + d_p[9]*k1*k3
-                 + d_p[10]*k2*k3 + d_p[11]*k1 + d_p[12]*k2 + d_p[13]*k3 + d_p[14] + d_p[15]/k1
-                 + d_p[16]/k2 + d_p[17]/k3 + d_p[18]/(k1*k2) + d_p[19]/(k1*k3) + d_p[20]/(k2*k3)
-                 + d_p[21]/(k1*k1) + d_p[22]/(k2*k2) + d_p[23]/(k3*k3);
+    double smooth = d_p[5]*k1*k1 + d_p[5]*k2*k2 + d_p[5]*k3*k3 
+                    + d_p[6]*k1*k2 + d_p[6]*k1*k3 + d_p[6]*k2*k3 
+                    + d_p[7]*k1 + d_p[7]*k2 + d_p[7]*k3
+                    + d_p[8] + d_p[9]/k1 + d_p[9]/k2 + d_p[9]/k3 + d_p[10]/(k1*k2) + d_p[10]/(k1*k3) 
+                    + d_p[10]/(k2*k3) + d_p[11]/(k1*k1) + d_p[11]/(k2*k2) + d_p[11]/(k3*k3);
     
     return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1) + smooth;
 }
