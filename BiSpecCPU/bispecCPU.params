@@ -1,0 +1,12 @@
+int Nx = 512
+int Ny = 512
+int Nz = 512
+
+double Lx = 1024.0
+double Ly = 1024.0
+double Lz = 1024.0
+double k_val = 0.1
+double bin_width = 0.008
+
+string shell_file = k0.1.bin
+string wisdom_file = /home/Entropy/FFTW_Wisdom.dat
