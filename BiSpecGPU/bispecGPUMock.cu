@@ -90,21 +90,21 @@ __device__ double atomicAdd(double* address, double val)
 
 // Finds the bispectrum bin for a k_1, k_2, k_3 triplet
 __device__ int getBkBin(float k1, float k2, float k3, float d_binWidth, int d_numBins, float kmin) {
-/*    if (k1 > k2) {
-        double temp = k1;
-        k1 = k2;
-        k2 = temp;
-    }
-    if (k1 > k3) {
-        double temp = k1;
-        k1 = k3;
-        k3 = temp;
-    }
-    if (k2 > k3) {
-        double temp = k2;
-        k2 = k3;
-        k3 = temp;
-    }  */  
+//     if (k1 > k2) {
+//         double temp = k1;
+//         k1 = k2;
+//         k2 = temp;
+//     }
+//     if (k1 > k3) {
+//         double temp = k1;
+//         k1 = k3;
+//         k3 = temp;
+//     }
+//     if (k2 > k3) {
+//         double temp = k2;
+//         k2 = k3;
+//         k3 = temp;
+//     }    
     int i = (k1 - kmin)/d_binWidth;
     int j = (k2 - kmin)/d_binWidth;
     int k = (k3 - kmin)/d_binWidth;
@@ -145,7 +145,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, do
         k_1.z *= -1;
         float4 dk_1 = dk3d[k_1.w];
         int ik1 = (dk_1.z - k_lim.x)/binWidth;
-        for (int i = 0; i < N; ++i) {
+        for (int i = tid; i < N; ++i) {
             int4 k_2 = k2[i];
             float4 dk_2 = dk3d[k_2.w];
             int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};

@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     
     std::cout << "Filling cube..." << std::endl;
     double start = omp_get_wtime();
-    #pragma omp parallel for
+//     #pragma omp parallel for
     for (int i = 0; i < N.x; ++i) {
         for (int j = 0; j < N.y; ++j) {
             for (int k = 0; k < N.z; ++k) {
@@ -89,6 +89,15 @@ int main(int argc, char *argv[]) {
     start = omp_get_wtime();
     fftw_execute(shellTrans);
     std::cout << "Time to transform..." << omp_get_wtime() - start << " s" << std::endl;
+    
+    int N_tot = N.x*N.y*N.z;
+    std::cout << "Simulating grid multiplications..." << std::endl;
+    start = omp_get_wtime();
+    double sum = {0.0};
+    for (int i = 0; i < N_tot; ++i) {
+        sum += delta[i][0]*shell[i][0]*shell2[i][0] - delta[i][0]*shell[i][1]*shell2[i][1] - delta[i][1]*shell[i][0]*shell2[i][1] - delta[i][1]*shell[i][1]*shell2[i][2];
+    }
+    std::cout << "Time for sum: " << omp_get_wtime() - start << " s" << std::endl;
     
     return 0;
 }

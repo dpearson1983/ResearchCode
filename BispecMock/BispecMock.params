@@ -6,4 +6,4 @@ double Lx = 1792.0
 double Ly = 3584.0
 double Lz = 1792.0
 double k_min = 0.032
-double k_max = 0.2
+double k_max = 0.128
