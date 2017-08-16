@@ -1,0 +1,9 @@
+int Nx = 512
+int Ny = 1024
+int Nz = 512
+
+double Lx = 1792.0
+double Ly = 3584.0
+double Lz = 1792.0
+double k_min = 0.032
+double k_max = 0.2
