@@ -480,7 +480,7 @@ void bkmcmc::run_chain(int num_draws, std::string reals_file, float3 *ks, double
     int num_old_rels = 0;
     if (new_chain) {
         std::cout << "Starting new chain..." << std::endl;
-        bkmcmc::burn_in(1000, ks, d_Bk);
+        bkmcmc::burn_in(10000, ks, d_Bk);
         bkmcmc::tune_vars(ks, d_Bk);
     } else {
         std::cout << "Resuming previous chain..." << std::endl;
