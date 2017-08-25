@@ -41,11 +41,18 @@ void pkmcmc::model_calc(std::vector<double> &pars) {
     gsl_function F;
     F.function = &gslClassWrapper;
     for (int i = 0; i < pkmcmc::num_data; ++i) {
-        double err;
+        std::cout << "1" << std::endl;
+        double res, err;
+        std::cout << "2" << std::endl;
         p.k = pkmcmc::k[i];
+        std::cout << "3" << std::endl;
         F.params = &p;
+        std::cout << "4" << std::endl;
         gsl_integration_qags(&F, -1.0, 1.0, pkmcmc::abs_err, pkmcmc::rel_err, pkmcmc::workspace_size,
-                             pkmcmc::w, &pkmcmc::model[i], &err);
+                             pkmcmc::w, &res, &err);
+        std::cout << "5" << std::endl;
+        pkmcmc::model[i] = res;
+        std::cout << "6" << std::endl;
     }
 }
 
@@ -182,6 +189,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file,
     }
     
     std::cout << "Setting up the GSL integration workspace..." << std::endl;
+    pkmcmc::workspace_size = int_workspace;
     pkmcmc::w = gsl_integration_workspace_alloc(int_workspace);
     pkmcmc::abs_err = err_abs;
     pkmcmc::rel_err = err_rel;
@@ -195,6 +203,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file,
             if (!fin.eof()) {
                 pkmcmc::k.push_back(kt);
                 pkmcmc::data.push_back(P);
+                pkmcmc::model.push_back(0.0);
             }
         }
         fin.close();
@@ -206,6 +215,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file,
     
     pkmcmc::num_data = pkmcmc::data.size();
     std::cout << "num_data = " << pkmcmc::num_data << std::endl;
+    std::cout << "number of k = " << pkmcmc::k.size() << std::endl;
     
     std::cout << "Reading in the covariance matrix and calculating its inverse..." << std::endl;
     
