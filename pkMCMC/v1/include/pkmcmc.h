@@ -18,6 +18,9 @@ class pkmcmc{
     gsl_integration_workspace *w;
     double chisq_0, chisq_i, abs_err, rel_err;
     
+    // The function to be integrated by GSL
+    double model_func(std::vector<double> &pars, int j); //done
+    
     // Performs the integral needed for the model value at each data point
     void model_calc(std::vector<double> &pars); //done
     
@@ -56,9 +59,6 @@ class pkmcmc{
         
         // Free the memory with various GSL class members
         void clean_up_gsl();
-        
-        // The function to be integrated by GSL
-        double model_func(double x, void *params); //done
         
 };
 

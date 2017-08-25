@@ -14,45 +14,41 @@ std::random_device seeder;
 std::mt19937_64 gen(seeder());
 std::uniform_real_distribution<double> dist(-1.0, 1.0);
 
-struct gsl_params{
-    double b, f, a_para, a_perp, k;
-    pkmcmc *pt_MyClass;
-};
+const 
+std::vector<double> w_i = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
+                           0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
+                           0.087652093004404, 0.087652093004404, 0.083311924226947, 0.083311924226947,
+                           0.078193895787070, 0.078193895787070, 0.072345794108849, 0.072345794108849,
+                           0.065822222776362, 0.065822222776362, 0.058684093478536, 0.058684093478536,
+                           0.050998059262376, 0.050998059262376, 0.042835898022227, 0.042835898022227,
+                           0.034273862913021, 0.034273862913021, 0.025392065309262, 0.025392065309262,
+                           0.016274394730906, 0.016274394730906, 0.007018610009470, 0.007018610009470};
 
-double gslClassWrapper(double x, void *pp) {
-    gsl_params *p = (gsl_params *)pp;
-    return p->pt_MyClass->model_func(x,p);
-}
+const
+std::vector<double> x_i = {-0.048307665687738, 0.048307665687738, -0.144471961582796, 0.144471961582796,
+                           -0.239287362252137, 0.239287362252137, -0.331868602282128, 0.331868602282128,
+                           -0.421351276130635, 0.421351276130635, -0.506899908932229, 0.506899908932229,
+                           -0.587715757240762, 0.587715757240762, -0.663044266930215, 0.663044266930215,
+                           -0.732182118740290, 0.732182118740290, -0.794483795967942, 0.794483795967942,
+                           -0.849367613732570, 0.849367613732570, -0.896321155766052, 0.896321155766052,
+                           -0.934906075937739, 0.934906075937739, -0.964762255587506, 0.964762255587506,
+                           -0.985611511545268, 0.985611511545268, -0.997263861849481, 0.997263861849481};
 
-double pkmcmc::model_func(double x, void *params) {
-    gsl_params p = *(gsl_params *)params;
-    double k = (p.k/p.a_perp)*sqrt(1.0 + x*x*((p.a_perp*p.a_perp)/(p.a_para*p.a_para) - 1.0));
-    double mu = ((x*p.a_perp)/p.a_para)/sqrt(1.0 + x*x*((p.a_perp*p.a_perp)/(p.a_para*p.a_para) - 1.0));
-    double coeff = (p.b + mu*mu*p.f)*(p.b + mu*mu*p.f);
-    return coeff*gsl_spline_eval(pkmcmc::Pk, k, pkmcmc::acc);
+double pkmcmc::model_func(std::vector<double> &pars, int j) {
+    double result = 0.0;
+    for (int i = 0; i < 32; ++i) {
+        double mubar = sqrt(1.0 + x_i[i]*x_i[i]*((pars[3]*pars[3])/(pars[2]*pars[2]) - 1.0));
+        double k_i = (pkmcmc::k[j]/pars[3])*mubar;
+        double mu = ((x_i[i]*pars[3])/pars[2])/mubar;
+        double coeff = (pars[0] + mu*mu*pars[1])*(pars[0] + mu*mu*pars[1]);
+        result += w_i[i]*coeff*gsl_spline_eval(pkmcmc::Pk, k_i, pkmcmc::acc);
+    }
+    return result;
 }
 
 void pkmcmc::model_calc(std::vector<double> &pars) {
-    gsl_params p;
-    p.b = pars[0];
-    p.f = pars[1];
-    p.a_para = pars[2];
-    p.a_perp = pars[3];
-    gsl_function F;
-    F.function = &gslClassWrapper;
     for (int i = 0; i < pkmcmc::num_data; ++i) {
-        std::cout << "1" << std::endl;
-        double res, err;
-        std::cout << "2" << std::endl;
-        p.k = pkmcmc::k[i];
-        std::cout << "3" << std::endl;
-        F.params = &p;
-        std::cout << "4" << std::endl;
-        gsl_integration_qags(&F, -1.0, 1.0, pkmcmc::abs_err, pkmcmc::rel_err, pkmcmc::workspace_size,
-                             pkmcmc::w, &res, &err);
-        std::cout << "5" << std::endl;
-        pkmcmc::model[i] = res;
-        std::cout << "6" << std::endl;
+        pkmcmc::model[i] = pkmcmc::model_func(pars, i);
     }
 }
 
