@@ -39,6 +39,16 @@ double pkmcmc::model_func(std::vector<double> &pars, int j) {
     for (int i = 0; i < 32; ++i) {
         double mubar = sqrt(1.0 + x_i[i]*x_i[i]*((pars[3]*pars[3])/(pars[2]*pars[2]) - 1.0));
         double k_i = (pkmcmc::k[j]/pars[3])*mubar;
+        if (k_i < pkmcmc::k_min || k_i > pkmcmc::k_max) {
+            std::stringstream message;
+            message << "Invalid value for interpolation." << std::endl;
+            message << "     k = " << k_i << std::endl;
+            message << "    mu = " << x_i[i] << std::endl;
+            message << "a_para = " << pars[2] << std::endl;
+            message << "a_perp = " << pars[3] << std::endl;
+            message << " mubar = " << mubar << std::endl;
+            throw std::runtime_error(message.str());
+        }
         double mu = ((x_i[i]*pars[3])/pars[2])/mubar;
         double coeff = (pars[0] + mu*mu*pars[1])*(pars[0] + mu*mu*pars[1]);
         result += w_i[i]*coeff*gsl_spline_eval(pkmcmc::Pk, k_i, pkmcmc::acc);
@@ -175,6 +185,8 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file,
             }
         }
         fin.close();
+        pkmcmc::k_min = kin[0];
+        pkmcmc::k_max = kin[kin.size() - 1];
         pkmcmc::Pk = gsl_spline_alloc(gsl_interp_cspline, pin.size());
         pkmcmc::acc = gsl_interp_accel_alloc();
         gsl_spline_init(pkmcmc::Pk, kin.data(), pin.data(), pin.size());

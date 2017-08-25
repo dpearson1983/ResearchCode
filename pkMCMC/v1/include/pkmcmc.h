@@ -16,7 +16,7 @@ class pkmcmc{
     gsl_spline *Pk;
     gsl_interp_accel *acc;
     gsl_integration_workspace *w;
-    double chisq_0, chisq_i, abs_err, rel_err;
+    double chisq_0, chisq_i, abs_err, rel_err, k_min, k_max;
     
     // The function to be integrated by GSL
     double model_func(std::vector<double> &pars, int j); //done
