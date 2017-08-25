@@ -196,12 +196,6 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file,
         throw std::runtime_error(message.str());
     }
     
-    std::cout << "Setting up the GSL integration workspace..." << std::endl;
-    pkmcmc::workspace_size = int_workspace;
-    pkmcmc::w = gsl_integration_workspace_alloc(int_workspace);
-    pkmcmc::abs_err = err_abs;
-    pkmcmc::rel_err = err_rel;
-    
     std::cout << "Reading in and storing data file..." << std::endl;
     if (std::ifstream(data_file)) {
         fin.open(data_file.c_str(), std::ios::in);
