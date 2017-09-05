@@ -8,6 +8,7 @@
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
+#include "../include/file_check.h"
 #include "../include/pkmcmc.h"
 
 std::random_device seeder;
@@ -34,25 +35,38 @@ std::vector<double> x_i = {-0.048307665687738, 0.048307665687738, -0.14447196158
                            -0.934906075937739, 0.934906075937739, -0.964762255587506, 0.964762255587506,
                            -0.985611511545268, 0.985611511545268, -0.997263861849481, 0.997263861849481};
 
+// double pkmcmc::model_func(std::vector<double> &pars, int j) {
+//     double result = 0.0;
+//     for (int i = 0; i < 32; ++i) {
+//         double mubar = sqrt(1.0 + x_i[i]*x_i[i]*((pars[3]*pars[3])/(pars[2]*pars[2]) - 1.0));
+//         double k_i = (pkmcmc::k[j]/pars[3])*mubar;
+//         if (k_i < pkmcmc::k_min || k_i > pkmcmc::k_max) {
+//             std::stringstream message;
+//             message << "Invalid value for interpolation." << std::endl;
+//             message << "     k = " << k_i << std::endl;
+//             message << "    mu = " << x_i[i] << std::endl;
+//             message << "a_para = " << pars[2] << std::endl;
+//             message << "a_perp = " << pars[3] << std::endl;
+//             message << " mubar = " << mubar << std::endl;
+//             throw std::runtime_error(message.str());
+//         }
+//         double mu = ((x_i[i]*pars[3])/pars[2])/mubar;
+//         double P_nw = gsl_spline_eval(pkmcmc::Pk_nw, k_i, pkmcmc::acc_nw);
+//         double P_bao = gsl_spline_eval(pkmcmc::Pk_bao, k_i, pkmcmc::acc_bao);
+//         result += w_i[i]*(pars[0]*(P_nw*(1.0 + (P_bao/P_nw - 1.0)*exp(-0.5*pars[4]*pars[4]*k_i*k_i))) 
+//                   + pars[5]*k_i + pars[6] + pars[7]/k_i + pars[8]/(k_i*k_i) + pars[9]/(k_i*k_i*k_i));
+//     }
+//     return result;
+// }
+
 double pkmcmc::model_func(std::vector<double> &pars, int j) {
-    double result = 0.0;
-    for (int i = 0; i < 32; ++i) {
-        double mubar = sqrt(1.0 + x_i[i]*x_i[i]*((pars[3]*pars[3])/(pars[2]*pars[2]) - 1.0));
-        double k_i = (pkmcmc::k[j]/pars[3])*mubar;
-        if (k_i < pkmcmc::k_min || k_i > pkmcmc::k_max) {
-            std::stringstream message;
-            message << "Invalid value for interpolation." << std::endl;
-            message << "     k = " << k_i << std::endl;
-            message << "    mu = " << x_i[i] << std::endl;
-            message << "a_para = " << pars[2] << std::endl;
-            message << "a_perp = " << pars[3] << std::endl;
-            message << " mubar = " << mubar << std::endl;
-            throw std::runtime_error(message.str());
-        }
-        double mu = ((x_i[i]*pars[3])/pars[2])/mubar;
-        double coeff = (pars[0] + mu*mu*pars[1])*(pars[0] + mu*mu*pars[1]);
-        result += w_i[i]*coeff*gsl_spline_eval(pkmcmc::Pk, k_i, pkmcmc::acc);
-    }
+    double k_i = pkmcmc::k[j];
+    double P_nw1 = gsl_spline_eval(pkmcmc::Pk_nw, k_i, pkmcmc::acc_nw);
+    double P_nw = gsl_spline_eval(pkmcmc::Pk_nw, k_i/pars[1], pkmcmc::acc_nw);
+    double P_bao = gsl_spline_eval(pkmcmc::Pk_bao, k_i/pars[1], pkmcmc::acc_bao);
+    double damp = exp(-0.5*pars[2]*pars[2]*k_i*k_i);
+    double broadband = pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
+    double result = pars[0]*pars[0]*P_nw*(1.0 + (P_bao/P_nw - 1.0)*damp + broadband);
     return result;
 }
 
@@ -110,7 +124,7 @@ bool pkmcmc::trial() {
 
 void pkmcmc::write_theta_screen() {
     std::cout.precision(6);
-    for (int i = 0; i < pkmcmc::num_pars; ++i) {
+    for (int i = 0; i < 5; ++i) {
         std::cout.width(15);
         std::cout << pkmcmc::theta_0[i];
     }
@@ -167,13 +181,13 @@ void pkmcmc::tune_vars() {
     fout.close();
 }
 
-pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file, std::vector<double> &pars,
-               std::vector<double> &vars, int int_workspace, double err_abs, double err_rel) {
+pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_file, std::string pk_nw_file,
+               std::vector<double> &pars, std::vector<double> &vars) {
     std::ifstream fin;
     
     std::cout << "Reading in power spectrum and creating interpolation spline..." << std::endl;
-    if (std::ifstream(pk_file)) {
-        fin.open(pk_file.c_str(), std::ios::in);
+    if (check_file_exists(pk_bao_file)) {
+        fin.open(pk_bao_file.c_str(), std::ios::in);
         std::vector<double> kin;
         std::vector<double> pin;
         while (!fin.eof()) {
@@ -187,13 +201,29 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_file,
         fin.close();
         pkmcmc::k_min = kin[0];
         pkmcmc::k_max = kin[kin.size() - 1];
-        pkmcmc::Pk = gsl_spline_alloc(gsl_interp_cspline, pin.size());
-        pkmcmc::acc = gsl_interp_accel_alloc();
-        gsl_spline_init(pkmcmc::Pk, kin.data(), pin.data(), pin.size());
-    } else {
-        std::stringstream message;
-        message << "Cannot open " << pk_file << std::endl;
-        throw std::runtime_error(message.str());
+        pkmcmc::Pk_bao = gsl_spline_alloc(gsl_interp_cspline, pin.size());
+        pkmcmc::acc_bao = gsl_interp_accel_alloc();
+        gsl_spline_init(pkmcmc::Pk_bao, kin.data(), pin.data(), pin.size());
+    }
+    
+    if (check_file_exists(pk_nw_file)) {
+        fin.open(pk_bao_file.c_str(), std::ios::in);
+        std::vector<double> kin;
+        std::vector<double> pin;
+        while (!fin.eof()) {
+            double kt, pt;
+            fin >> kt >> pt;
+            if (!fin.eof()) {
+                kin.push_back(kt);
+                pin.push_back(pt);
+            }
+        }
+        fin.close();
+        pkmcmc::k_min = kin[0];
+        pkmcmc::k_max = kin[kin.size() - 1];
+        pkmcmc::Pk_nw = gsl_spline_alloc(gsl_interp_cspline, pin.size());
+        pkmcmc::acc_nw = gsl_interp_accel_alloc();
+        gsl_spline_init(pkmcmc::Pk_nw, kin.data(), pin.data(), pin.size());
     }
     
     std::cout << "Reading in and storing data file..." << std::endl;
@@ -360,7 +390,8 @@ void pkmcmc::run_chain(int num_draws, std::string reals_file, bool new_chain) {
 }
 
 void pkmcmc::clean_up_gsl() {
-    gsl_spline_free(pkmcmc::Pk);
-    gsl_interp_accel_free(pkmcmc::acc);
-    gsl_integration_workspace_free(pkmcmc::w);
+    gsl_spline_free(pkmcmc::Pk_bao);
+    gsl_spline_free(pkmcmc::Pk_nw);
+    gsl_interp_accel_free(pkmcmc::acc_bao);
+    gsl_interp_accel_free(pkmcmc::acc_nw);
 }

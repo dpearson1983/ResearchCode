@@ -28,8 +28,8 @@ int main(int argc, char *argv[]) {
     }
     
     // Initialize the pkmcmc object
-    pkmcmc pkFit(p.gets("data_file"), p.gets("cov_file"), p.gets("pk_file"), pars, vars, 
-                 p.geti("int_workspace"), p.getd("abs_err"), p.getd("rel_err"));
+    pkmcmc pkFit(p.gets("data_file"), p.gets("cov_file"), p.gets("pk_bao_file"), p.gets("pk_nw_file"), pars,
+                 vars);
     
     pkFit.check_init();
     
