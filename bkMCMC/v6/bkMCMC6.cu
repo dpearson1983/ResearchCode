@@ -35,8 +35,8 @@ int main(int argc, char *argv[]) {
     double *d_Bk;
     float3 *d_ks;
     
-    gpuErrchk(cudaMalloc((void **)&d_Bk, 1327*sizeof(double)));
-    gpuErrchk(cudaMalloc((void **)&d_ks, 1327*sizeof(float3)));
+    gpuErrchk(cudaMalloc((void **)&d_Bk, 888*sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&d_ks, 888*sizeof(float3)));
     
     // Initialize bkmcmc object
     bkmcmc bk_fit(p.data_file, p.cov_file, p.start_params, p.var_i, d_ks, d_Bk);

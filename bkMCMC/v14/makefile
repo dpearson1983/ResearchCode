@@ -1,5 +1,5 @@
 CXX = g++
-ARCHS = sm_52
+ARCHS = sm_50
 VXX = nvcc -std=c++11 -arch=$(ARCHS)
 CXXLIBS = -lharppi -lgsl -lgslcblas -lm
 CXXFLAGS = -march=native -O3

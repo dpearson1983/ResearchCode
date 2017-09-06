@@ -528,7 +528,7 @@ bkmcmc::bkmcmc(std::string data_file, std::vector<double> &pars, std::vector<dou
         bkmcmc::limit_pars.push_back(false);
         bkmcmc::max.push_back(0.0);
         bkmcmc::min.push_back(0.0);
-        bkmcmc::param_vars.push_back(vars[i]*pars[i]);
+        bkmcmc::param_vars.push_back(vars[i]);
     }
     
     std::cout << "Calculating initial model and chi^2..." << std::endl;

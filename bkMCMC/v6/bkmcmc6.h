@@ -185,8 +185,6 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float Z2k31 = (0.5*d_p[1] + d_p[0]*F31 + d_p[2]*mu31p*mu31p*G31 + 
                    0.5*d_p[2]*mu31p*k31*((mu3*Z1k1)/k3 + (mu1*Z1k3)/k1));
     
-    
-    
     return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1);
 }
 
@@ -217,11 +215,12 @@ __global__ void bispec_gauss_32(float3 *ks, double *Bk) {
         double k2 = ks[blockIdx.x].y;
         double k3 = ks[blockIdx.x].z;
         
-        double smooth = d_p[5]*k1*k1 + d_p[5]*k2*k2 + d_p[5]*k3*k3 
-                    + d_p[6]*k1*k2 + d_p[6]*k1*k3 + d_p[6]*k2*k3 
-                    + d_p[7]*k1 + d_p[7]*k2 + d_p[7]*k3
-                    + d_p[8] + d_p[9]/k1 + d_p[9]/k2 + d_p[9]/k3 + d_p[10]/(k1*k2) + d_p[10]/(k1*k3) 
-                    + d_p[10]/(k2*k3) + d_p[11]/(k1*k1) + d_p[11]/(k2*k2) + d_p[11]/(k3*k3);
+        double smooth = d_p[5]*k1 + d_p[5]*k2 + d_p[5]*k3
+                    + d_p[6] + d_p[7]/k1 + d_p[7]/k2 + d_p[7]/k3 + d_p[8]/(k1*k2) + d_p[8]/(k1*k3) 
+                    + d_p[8]/(k2*k3) + d_p[9]/(k1*k1) + d_p[9]/(k2*k2) + d_p[9]/(k3*k3)
+                    + d_p[10]/(k1*k1*k2) + d_p[10]/(k2*k2*k3) + d_p[10]/(k3*k3*k1)
+                    + d_p[10]/(k2*k2*k1) + d_p[10]/(k3*k3*k2) + d_p[10]/(k1*k1*k3)
+                    + d_p[11]/(k1*k1*k1) + d_p[11]/(k2*k2*k2) + d_p[11]/(k3*k3*k3);
         
         for (int i = 1; i < 32; ++i)
             int_grid[0] += int_grid[blockDim.x*i];
@@ -436,7 +435,7 @@ bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> 
         bkmcmc::limit_pars.push_back(false);
         bkmcmc::max.push_back(0.0);
         bkmcmc::min.push_back(0.0);
-        bkmcmc::param_vars.push_back(vars[i]*pars[i]);
+        bkmcmc::param_vars.push_back(vars[i]);
     }
     
     std::cout << "Calculating initial model and chi^2..." << std::endl;
@@ -480,7 +479,7 @@ void bkmcmc::run_chain(int num_draws, std::string reals_file, float3 *ks, double
     int num_old_rels = 0;
     if (new_chain) {
         std::cout << "Starting new chain..." << std::endl;
-        bkmcmc::burn_in(1000, ks, d_Bk);
+        bkmcmc::burn_in(10000, ks, d_Bk);
         bkmcmc::tune_vars(ks, d_Bk);
     } else {
         std::cout << "Resuming previous chain..." << std::endl;
