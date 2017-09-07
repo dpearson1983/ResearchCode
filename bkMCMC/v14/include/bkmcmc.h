@@ -80,7 +80,8 @@ __global__ void calc_Bk_model(float3 *ks, double *Bk_bao, double *Bk_nw, double 
 
 class bkmcmc{
     int num_data, num_pars;
-    std::vector<double> data, Bk, Psi; // These should have size of num_data
+    std::vector<double> data, Bk; // These should have size of num_data
+    std::vector<std::vector<double>> Psi;
     std::vector<double> theta_0, theta_i, param_vars, min, max; // These should all have size of num_pars
     std::vector<float3> k; // This should have size of num_data
     std::vector<bool> limit_pars; // This should have size of num_pars
@@ -486,12 +487,14 @@ void bkmcmc::tune_vars(float3 *ks, double *Bk_bao, double *Bk_nw, double *Bk_mod
     fout.close();
 }
 
-bkmcmc::bkmcmc(std::string data_file, std::vector<double> &pars, std::vector<double> &vars, float3 *ks, 
-               double *Bk_bao, double *Bk_nw, double *Bk_mod) {
+bkmcmc::bkmcmc(int N, std::string data_file, std::vector<double> &pars, 
+               std::vector<double> &vars, float3 *ks, double *Bk_bao, double *Bk_nw, double *Bk_mod, 
+               bool full_covar, std::string covar_file = std::string()) {
     std::ifstream fin;
     std::ofstream fout;
     
     std::cout << "Reading in and storing data file..." << std::endl;
+    int count = 0;
     fin.open(data_file.c_str(), std::ios::in);
     while (!fin.eof()) {
         float3 kt;
@@ -500,14 +503,21 @@ bkmcmc::bkmcmc(std::string data_file, std::vector<double> &pars, std::vector<dou
         if (!fin.eof()) {
             bkmcmc::k.push_back(kt);
             bkmcmc::data.push_back(B);
-            bkmcmc::Psi.push_back(1.0/var);
+            std::vector<double> row(N);
+            if (!full_covar) {
+                row[count] = 1.0/var;
+                bkmcmc::Psi.push_back(row);
+            }
             bkmcmc::Bk.push_back(0.0);
+            count++;
         }
     }
     fin.close();
     
     bkmcmc::num_data = bkmcmc::data.size();
     std::cout << "num_data = " << bkmcmc::num_data << std::endl;
+    
+    if (full_covar
     
     
     gpuErrchk(cudaMemcpy(ks, bkmcmc::k.data(), bkmcmc::num_data*sizeof(float3), cudaMemcpyHostToDevice));
