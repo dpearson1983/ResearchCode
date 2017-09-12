@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
             fin >> ra >> dec >> red >> temp1 >> temp2;
             if (!fin.eof() && red >= p.getd("red_min") && red < p.getd("red_max")) {
                 galaxy<double> gal(ra, dec, red, 0.0, 0.0, 0.0, gsl_spline_eval(nofz, red, nz_acc), 0.0, 
-                                   temp1);
+                                   temp1*temp2);
                 gal.cartesian(p.getd("Omega_M"), p.getd("Omega_L"), w_gsl);
                 gal.bin(nden_gal, L, N, r_min, galpk_nbw, galbk_nbw, p.getd("P_w"),
                         galFlags::INPUT_WEIGHT|galFlags::CIC);

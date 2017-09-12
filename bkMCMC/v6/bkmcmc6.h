@@ -412,7 +412,7 @@ bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> 
         std::vector<double> row;
         row.reserve(bkmcmc::num_data);
         for (int j = 0; j < bkmcmc::num_data; ++j) {
-            row.push_back((1.0 - double(bkmcmc::num_data)/1000.0)*gsl_matrix_get(psi, i, j));
+            row.push_back((1.0 - double(bkmcmc::num_data + 1.0)/999.0)*gsl_matrix_get(psi, i, j));
         }
         bkmcmc::Psi.push_back(row);
     }
