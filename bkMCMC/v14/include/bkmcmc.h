@@ -21,6 +21,9 @@
 #include <cmath>
 #include <cuda.h>
 #include <vector_types.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix.h>
+#include <file_check.h>
 #include <gpuerrchk.h>
 
 #define TWOSEVENTHS 0.285714285714
@@ -63,6 +66,8 @@ __device__ float spline_eval_nw(float k); // done
 
 // Calculates a single element of the sum to get the bispectrum for a particular k triplet
 __device__ double bispec_model_bao(int x, float &phi, float3 k); // done
+
+__device__ double bispec_model_nwa(int x, float &phi, float3 k);
 
 // Enables the above bispec_model to be executed on many CUDA cores to speed up the integral calculation
 __global__ void bispec_bao_32(float3 *ks, double *Bk);
@@ -110,8 +115,9 @@ class bkmcmc{
     
     public:
         // Initializes most of the data members and gets an initial chisq_0
-        bkmcmc(std::string data_file, std::vector<double> &pars, std::vector<double> &vars, float3 *ks, 
-               double *Bk_bao, double *Bk_nw, double *Bk_mod); // done
+        bkmcmc(int N, std::string data_file, std::vector<double> &pars, 
+               std::vector<double> &vars, float3 *ks, double *Bk_bao, double *Bk_nw, double *Bk_mod, 
+               bool full_covar, std::string covar_file = std::string(), int samps = 0); // done
         
         // Displays information to the screen to check that the vectors are all the correct size
         void check_init(); // done
@@ -209,41 +215,7 @@ __device__ double bispec_model_bao(int x, float &phi, float3 k) {
     return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1);
 }
 
-// double smooth = d_p[5]*k1*k1 + d_p[5]*k2*k2 + d_p[5]*k3*k3 
-//                     + d_p[6]*k1*k2 + d_p[6]*k1*k3 + d_p[6]*k2*k3 
-//                     + d_p[7]*k1 + d_p[7]*k2 + d_p[7]*k3
-//                     + d_p[8] + d_p[9]/k1 + d_p[9]/k2 + d_p[9]/k3 + d_p[10]/(k1*k2) + d_p[10]/(k1*k3) 
-//                     + d_p[10]/(k2*k3) + d_p[11]/(k1*k1) + d_p[11]/(k2*k2) + d_p[11]/(k3*k3);
-
-// GPU kernel to calculate the bispectrum model. This kernel uses a fixed 32-point Gaussian quadrature
-// and utilizes constant and shared memory to speed things up by about 220x compared to the previous
-// version of the code while improving accuracy.
-__global__ void bispec_bao_32(float3 *ks, double *Bk) {
-    int tid = threadIdx.y + blockDim.x*threadIdx.x; // Block local thread ID
-    
-    __shared__ double int_grid[1024]; // Shared memory for all integral values: 8192 bytes
-    
-    // Calculate the value for this thread
-    float phi = PI*d_xi[threadIdx.y] + PI;
-    int_grid[tid] = d_wi[threadIdx.x]*d_wi[threadIdx.y]*bispec_model_bao(threadIdx.x, phi, ks[blockIdx.x]);
-    __syncthreads();
-    
-    // First step of reduction done by 32 threads
-    if (threadIdx.y == 0) {
-        for (int i = 1; i < 32; ++i)
-            int_grid[tid] += int_grid[tid + i];
-    }
-    __syncthreads();
-    
-    // Final reduction and writing result to global memory done only on first thread
-    if (tid == 0) {
-        for (int i = 1; i < 32; ++i)
-            int_grid[0] += int_grid[blockDim.x*i];
-        Bk[blockIdx.x] = int_grid[0]/4.0;
-    }
-}
-
-__device__ double bispec_model_nw(int x, float &phi, float3 k) {
+__device__ double bispec_model_nwa(int x, float &phi, float3 k) {
     // Calculate the mu's without the AP effects
     float z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
     float mu1 = d_xi[x];
@@ -268,6 +240,97 @@ __device__ double bispec_model_nw(int x, float &phi, float3 k) {
     mu1 = (mu1*d_p[4])/(d_p[3]*sqrt(mu1bar));
     mu2 = (mu2*d_p[4])/(d_p[3]*sqrt(mu2bar));
     mu3 = (mu3*d_p[4])/(d_p[3]*sqrt(mu3bar));
+    
+    // More convenient things to calculate before the long expressions
+    float mu12 = -(k1*k1 + k2*k2 - k3*k3)/(2.0*k1*k2);
+    float mu23 = -(k2*k2 + k3*k3 - k1*k1)/(2.0*k2*k3);
+    float mu31 = -(k3*k3 + k1*k1 - k2*k2)/(2.0*k3*k1);
+    
+    float k12 = sqrt(k1*k1 + k2*k2 + 2.0*k1*k2*mu12);
+    float k23 = sqrt(k2*k2 + k3*k3 + 2.0*k2*k3*mu23);
+    float k31 = sqrt(k3*k3 + k1*k1 + 2.0*k3*k1*mu31);
+    
+    float mu12p = (k1*mu1 + k2*mu2)/k12;
+    float mu23p = (k2*mu2 + k3*mu3)/k23;
+    float mu31p = (k3*mu3 + k1*mu1)/k31;
+    
+    float Z1k1 = (d_p[0] + d_p[2]*mu1*mu1);
+    float Z1k2 = (d_p[0] + d_p[2]*mu2*mu2);
+    float Z1k3 = (d_p[0] + d_p[2]*mu3*mu3);
+    
+    float F12 = FIVESEVENTHS + 0.5*mu12*(k1/k2 + k2/k1) + TWOSEVENTHS*mu12*mu12;
+    float F23 = FIVESEVENTHS + 0.5*mu23*(k2/k3 + k3/k2) + TWOSEVENTHS*mu23*mu23;
+    float F31 = FIVESEVENTHS + 0.5*mu31*(k3/k1 + k1/k3) + TWOSEVENTHS*mu31*mu31;
+    
+    float G12 = THREESEVENTHS + 0.5*mu12*(k1/k2 + k2/k1) + FOURSEVENTHS*mu12*mu12;
+    float G23 = THREESEVENTHS + 0.5*mu23*(k2/k3 + k3/k2) + FOURSEVENTHS*mu23*mu23;
+    float G31 = THREESEVENTHS + 0.5*mu31*(k3/k1 + k1/k3) + FOURSEVENTHS*mu31*mu31;
+    
+    float Z2k12 = (0.5*d_p[1] + d_p[0]*F12 + d_p[2]*mu12p*mu12p*G12 + 
+                   0.5*d_p[2]*mu12p*k12*((mu1*Z1k2)/k1 + (mu2*Z1k1)/k2));
+    float Z2k23 = (0.5*d_p[1] + d_p[0]*F23 + d_p[2]*mu23p*mu23p*G23 + 
+                   0.5*d_p[2]*mu23p*k23*((mu2*Z1k3)/k2 + (mu3*Z1k2)/k3));
+    float Z2k31 = (0.5*d_p[1] + d_p[0]*F31 + d_p[2]*mu31p*mu31p*G31 + 
+                   0.5*d_p[2]*mu31p*k31*((mu3*Z1k1)/k3 + (mu1*Z1k3)/k1));
+    
+    return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1);
+}
+
+// double smooth = d_p[5]*k1*k1 + d_p[5]*k2*k2 + d_p[5]*k3*k3 
+//                     + d_p[6]*k1*k2 + d_p[6]*k1*k3 + d_p[6]*k2*k3 
+//                     + d_p[7]*k1 + d_p[7]*k2 + d_p[7]*k3
+//                     + d_p[8] + d_p[9]/k1 + d_p[9]/k2 + d_p[9]/k3 + d_p[10]/(k1*k2) + d_p[10]/(k1*k3) 
+//                     + d_p[10]/(k2*k3) + d_p[11]/(k1*k1) + d_p[11]/(k2*k2) + d_p[11]/(k3*k3);
+
+// GPU kernel to calculate the bispectrum model. This kernel uses a fixed 32-point Gaussian quadrature
+// and utilizes constant and shared memory to speed things up by about 220x compared to the previous
+// version of the code while improving accuracy.
+__global__ void bispec_bao_32(float3 *ks, double *Bk) {
+    int tid = threadIdx.y + blockDim.x*threadIdx.x; // Block local thread ID
+    
+    __shared__ double int_grid[1024]; // Shared memory for all integral values: 8192 bytes
+    __shared__ double grid_int[1024];
+    
+    // Calculate the value for this thread
+    float phi = PI*d_xi[threadIdx.y] + PI;
+    int_grid[tid] = d_wi[threadIdx.x]*d_wi[threadIdx.y]*bispec_model_bao(threadIdx.x, phi, ks[blockIdx.x]);
+    grid_int[tid] = d_wi[threadIdx.x]*d_wi[threadIdx.y]*bispec_model_nwa(threadIdx.x, phi, ks[blockIdx.x]);
+    __syncthreads();
+    
+    // First step of reduction done by 32 threads
+    if (threadIdx.y == 0) {
+        for (int i = 1; i < 32; ++i) {
+            int_grid[tid] += int_grid[tid + i];
+            grid_int[tid] += int_grid[tid + i];
+        }
+    }
+    __syncthreads();
+    
+    // Final reduction and writing result to global memory done only on first thread
+    if (tid == 0) {
+        for (int i = 1; i < 32; ++i) {
+            int_grid[0] += int_grid[blockDim.x*i];
+            grid_int[0] += grid_int[blockDim.x*i];
+        }
+        Bk[blockIdx.x] = int_grid[0]/grid_int[0];
+    }
+}
+
+__device__ double bispec_model_nw(int x, float &phi, float3 k) {
+    // Calculate the mu's without the AP effects
+    float z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
+    float mu1 = d_xi[x];
+    float mu2 = -d_xi[x]*z + sqrtf(1.0 - d_xi[x]*d_xi[x])*sqrtf(1.0 - z*z)*cos(phi);
+    float mu3 = -(mu1*k.x + mu2*k.y)/k.z;
+    
+    // Convert the k's and mu's to include the AP effects
+    float k1 = k.x;
+    float k2 = k.y;
+    float k3 = k.z;
+    
+    float P1 = spline_eval_nw(k1);
+    float P2 = spline_eval_nw(k2);
+    float P3 = spline_eval_nw(k3);
     
     // More convenient things to calculate before the long expressions
     float mu12 = -(k1*k1 + k2*k2 - k3*k3)/(2.0*k1*k2);
@@ -347,7 +410,7 @@ __global__ void calc_Bk_model(int N, float3 *ks, double *Bk_bao, double *Bk_nw, 
                          + d_p[10]/(ks[tid].y*ks[tid].z) + d_p[11]/(ks[tid].x*ks[tid].x) 
                          + d_p[11]/(ks[tid].y*ks[tid].y) + d_p[11]/(ks[tid].z*ks[tid].z);
         
-        Bk_mod[tid] = Bk_nw[tid]*(1.0 + (Bk_bao[tid]/Bk_nw[tid] - 1.0)*damp) + broadband;
+        Bk_mod[tid] = Bk_nw[tid]*(1.0 + (Bk_bao[tid] - 1.0)*damp) + broadband;
     }
 }
 
@@ -359,7 +422,6 @@ void bkmcmc::model_calc(std::vector<double> &pars, float3 *ks, double *Bk_bao, d
     gpuErrchk(cudaMemcpyToSymbol(d_p, theta.data(), bkmcmc::num_pars*sizeof(float)));
     
     dim3 num_threads(32,32);
-    int num_blocks = ceil(bkmcmc::num_data/1024.0);
     
     bispec_bao_32<<<bkmcmc::num_data, num_threads>>>(ks, Bk_bao);
     gpuErrchk(cudaPeekAtLastError());
@@ -369,9 +431,16 @@ void bkmcmc::model_calc(std::vector<double> &pars, float3 *ks, double *Bk_bao, d
     gpuErrchk(cudaPeekAtLastError());
     gpuErrchk(cudaDeviceSynchronize());
     
-    calc_Bk_model<<<num_blocks, 1024>>>(bkmcmc::num_data, ks, Bk_bao, Bk_nw, Bk_mod);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
+    if (bkmcmc::num_data <= 1024) {
+        calc_Bk_model<<<1, bkmcmc::num_data>>>(bkmcmc::num_data, ks, Bk_bao, Bk_nw, Bk_mod);
+        gpuErrchk(cudaPeekAtLastError());
+        gpuErrchk(cudaDeviceSynchronize());
+    } else {
+        int num_blocks = ceil(bkmcmc::num_data/1024.0);
+        calc_Bk_model<<<num_blocks, 1024>>>(bkmcmc::num_data, ks, Bk_bao, Bk_nw, Bk_mod);
+        gpuErrchk(cudaPeekAtLastError());
+        gpuErrchk(cudaDeviceSynchronize());
+    }
     
     gpuErrchk(cudaMemcpy(bkmcmc::Bk.data(), Bk_mod, bkmcmc::num_data*sizeof(double), 
                          cudaMemcpyDeviceToHost));
@@ -398,7 +467,9 @@ void bkmcmc::get_param_real() {
 double bkmcmc::calc_chi_squared() {
     double chisq = 0.0;
     for (int i = 0; i < bkmcmc::num_data; ++i) {
-        chisq += (bkmcmc::data[i] - bkmcmc::Bk[i])*Psi[i]*(bkmcmc::data[i] - bkmcmc::Bk[i]);
+        for (int j = i; j < bkmcmc::num_data; ++j) {
+        chisq += (bkmcmc::data[i] - bkmcmc::Bk[i])*bkmcmc::Psi[i][j]*(bkmcmc::data[i] - bkmcmc::Bk[i]);
+        }
     }
     return chisq;
 }
@@ -427,6 +498,8 @@ void bkmcmc::write_theta_screen() {
         std::cout.width(15);
         std::cout << bkmcmc::theta_0[i];
     }
+    std::cout.width(15);
+    std::cout << pow(bkmcmc::theta_0[3]*bkmcmc::theta_0[4]*bkmcmc::theta_0[4], 1.0/3.0);
     std::cout.width(15);
     std::cout << bkmcmc::chisq_0;
     std::cout.flush();
@@ -489,7 +562,7 @@ void bkmcmc::tune_vars(float3 *ks, double *Bk_bao, double *Bk_nw, double *Bk_mod
 
 bkmcmc::bkmcmc(int N, std::string data_file, std::vector<double> &pars, 
                std::vector<double> &vars, float3 *ks, double *Bk_bao, double *Bk_nw, double *Bk_mod, 
-               bool full_covar, std::string covar_file = std::string()) {
+               bool full_covar, std::string covar_file, int samps) {
     std::ifstream fin;
     std::ofstream fout;
     
@@ -517,8 +590,42 @@ bkmcmc::bkmcmc(int N, std::string data_file, std::vector<double> &pars,
     bkmcmc::num_data = bkmcmc::data.size();
     std::cout << "num_data = " << bkmcmc::num_data << std::endl;
     
-    if (full_covar
-    
+    if (full_covar) {
+        gsl_matrix *cov = gsl_matrix_alloc(N, N);
+        gsl_matrix *psi = gsl_matrix_alloc(N, N);
+        gsl_permutation *perm = gsl_permutation_alloc(N);
+        
+        double D = double(samps - bkmcmc::num_data - 2)/double(samps - 1);
+        
+        if (check_file_exists(covar_file)) {
+            fin.open(covar_file.c_str(), std::ios::in);
+            for (int i = 0; i < N; ++i) {
+                for (int j = 0; j < N; ++j) {
+                    double val;
+                    fin >> val;
+                    gsl_matrix_set(cov, i, j, val);
+                }
+            }
+            fin.close();
+        }
+        
+        int s;
+        gsl_linalg_LU_decomp(cov, perm, &s);
+        gsl_linalg_LU_invert(cov, perm, psi);
+        
+        for (int i = 0; i < N; ++i) {
+            std::vector<double> row;
+            row.reserve(N);
+            for (int j = 0; j < N; ++j) {
+                row.push_back(D*gsl_matrix_get(psi, i, j));
+            }
+            bkmcmc::Psi.push_back(row);
+        }
+        
+        gsl_matrix_free(cov);
+        gsl_matrix_free(psi);
+        gsl_permutation_free(perm);
+    }    
     
     gpuErrchk(cudaMemcpy(ks, bkmcmc::k.data(), bkmcmc::num_data*sizeof(float3), cudaMemcpyHostToDevice));
     

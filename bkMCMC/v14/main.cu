@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     gpuErrchk(cudaMalloc((void **)&d_ks, p.num_data*sizeof(float3)));
     
     // Initialize bkmcmc object
-    bkmcmc bk_fit(p.data_file, p.start_params, p.var_i, d_ks, d_Bkbao, d_Bknw, d_Bk);
+    bkmcmc bk_fit(p.num_data, p.data_file, p.start_params, p.var_i, d_ks, d_Bkbao, d_Bknw, d_Bk, p.full_covar, p.cov_file, p.num_samps);
     
     // Check that the initialization worked
     bk_fit.check_init();
