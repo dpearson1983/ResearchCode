@@ -44,7 +44,7 @@ class pkmcmc{
     public:
         // Initialization function
         pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_file, std::string pk_nw_file,
-               std::vector<double> &pars, std::vector<double> &vars); //done
+               std::vector<double> &pars, std::vector<double> &vars, bool mock_avg); //done
         
         // Check that the vectors have the expected sizes
         void check_init(); //done

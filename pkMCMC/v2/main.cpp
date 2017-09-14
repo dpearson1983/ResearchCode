@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     
     // Initialize the pkmcmc object
     pkmcmc pkFit(p.gets("data_file"), p.gets("cov_file"), p.gets("pk_bao_file"), p.gets("pk_nw_file"), pars,
-                 vars);
+                 vars, p.getb("mock_avg"));
     
     pkFit.check_init();
     

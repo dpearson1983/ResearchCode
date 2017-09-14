@@ -61,12 +61,12 @@ std::vector<double> x_i = {-0.048307665687738, 0.048307665687738, -0.14447196158
 
 double pkmcmc::model_func(std::vector<double> &pars, int j) {
     double k_i = pkmcmc::k[j];
-    double P_nw1 = gsl_spline_eval(pkmcmc::Pk_nw, k_i, pkmcmc::acc_nw);
-    double P_nw = gsl_spline_eval(pkmcmc::Pk_nw, k_i/pars[1], pkmcmc::acc_nw);
+    double P_nw = gsl_spline_eval(pkmcmc::Pk_nw, k_i, pkmcmc::acc_nw);
+    double P_nwa = gsl_spline_eval(pkmcmc::Pk_nw, k_i/pars[1], pkmcmc::acc_nw);
     double P_bao = gsl_spline_eval(pkmcmc::Pk_bao, k_i/pars[1], pkmcmc::acc_bao);
     double damp = exp(-0.5*pars[2]*pars[2]*k_i*k_i);
     double broadband = pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
-    double result = pars[0]*pars[0]*P_nw*(1.0 + (P_bao/P_nw - 1.0)*damp + broadband);
+    double result = (pars[0]*pars[0]*P_nwa + broadband)*(1.0 + (P_bao/P_nwa - 1.0)*damp);
     return result;
 }
 
@@ -124,7 +124,7 @@ bool pkmcmc::trial() {
 
 void pkmcmc::write_theta_screen() {
     std::cout.precision(6);
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < pkmcmc::num_pars; ++i) {
         std::cout.width(15);
         std::cout << pkmcmc::theta_0[i];
     }
@@ -182,7 +182,7 @@ void pkmcmc::tune_vars() {
 }
 
 pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_file, std::string pk_nw_file,
-               std::vector<double> &pars, std::vector<double> &vars) {
+               std::vector<double> &pars, std::vector<double> &vars, bool mock_avg) {
     std::ifstream fin;
     
     std::cout << "Reading in power spectrum and creating interpolation spline..." << std::endl;
@@ -207,7 +207,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
     }
     
     if (check_file_exists(pk_nw_file)) {
-        fin.open(pk_bao_file.c_str(), std::ios::in);
+        fin.open(pk_nw_file.c_str(), std::ios::in);
         std::vector<double> kin;
         std::vector<double> pin;
         while (!fin.eof()) {
@@ -261,6 +261,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
             for (int j = 0; j < pkmcmc::num_data; ++j) {
                 double element;
                 fin >> element;
+//                 if (mock_avg) element /= 1000.0;
                 gsl_matrix_set(cov, i, j, element);
             }
         }
@@ -279,7 +280,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
         std::vector<double> row;
         row.reserve(pkmcmc::num_data);
         for (int j = 0; j < pkmcmc::num_data; ++j) {
-            row.push_back(gsl_matrix_get(psi, i, j));
+            row.push_back((1.0 - (pkmcmc::num_data + 1.0)/992.0)*gsl_matrix_get(psi, i, j));
         }
         pkmcmc:Psi.push_back(row);
     }
@@ -298,7 +299,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
         pkmcmc::limit_pars.push_back(false);
         pkmcmc::max.push_back(0.0);
         pkmcmc::min.push_back(0.0);
-        pkmcmc::param_vars.push_back(vars[i]*pars[i]);
+        pkmcmc::param_vars.push_back(vars[i]);
     }
     
     std::cout << "Calculating initial model and chi^2..." << std::endl;
@@ -333,7 +334,7 @@ void pkmcmc::run_chain(int num_draws, std::string reals_file, bool new_chain) {
     int num_old_rels = 0;
     if (new_chain) {
         std::cout << "Starting new chain..." << std::endl;
-        pkmcmc::burn_in(10000);
+        pkmcmc::burn_in(1000000);
         pkmcmc::tune_vars();
     } else {
         std::cout << "Resuming previous chain..." << std::endl;
