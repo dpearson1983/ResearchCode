@@ -2,9 +2,9 @@
 #include <fstream>
 #include <vector>
 #include <cmath>
-#include <cspline.h>
+#include "../include/cspline.h"
 #include "../include/make_spline.h"
-#include "/usr/local/cuda-8.0/include/vector_types.h"
+#include <vector_types.h>
 
 std::vector<float4> make_spline(std::string in_pk_file) {
     std::ifstream fin;

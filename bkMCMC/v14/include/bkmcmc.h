@@ -1,8 +1,6 @@
-/* bkmcmc3.h
+/* bkmcmc.h
  * David W. Pearson
  * May 17, 2017
- * 
- * This header is going to replace bkmcmc2.h and hopefully actually work.
  * 
  * Instead of storing things on the GPU everything except for the model calculation will be done host
  * side. The device pointers will be defined in bkMCMC3.cu and passed to the functions that need them.
@@ -10,8 +8,8 @@
  * of the class initializer.
  */
 
-#ifndef _BKMCMC8_H_
-#define _BKMCMC8_H_
+#ifndef _BKMCMC_H_
+#define _BKMCMC_H_
 
 #include <iostream>
 #include <fstream>
@@ -23,8 +21,8 @@
 #include <vector_types.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_matrix.h>
-#include <file_check.h>
-#include <gpuerrchk.h>
+#include "file_check.h"
+#include "gpuerrchk.h"
 
 #define TWOSEVENTHS 0.285714285714
 #define THREESEVENTHS 0.428571428571
@@ -276,11 +274,6 @@ __device__ double bispec_model_nwa(int x, float &phi, float3 k) {
     return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1);
 }
 
-// double smooth = d_p[5]*k1*k1 + d_p[5]*k2*k2 + d_p[5]*k3*k3 
-//                     + d_p[6]*k1*k2 + d_p[6]*k1*k3 + d_p[6]*k2*k3 
-//                     + d_p[7]*k1 + d_p[7]*k2 + d_p[7]*k3
-//                     + d_p[8] + d_p[9]/k1 + d_p[9]/k2 + d_p[9]/k3 + d_p[10]/(k1*k2) + d_p[10]/(k1*k3) 
-//                     + d_p[10]/(k2*k3) + d_p[11]/(k1*k1) + d_p[11]/(k2*k2) + d_p[11]/(k3*k3);
 
 // GPU kernel to calculate the bispectrum model. This kernel uses a fixed 32-point Gaussian quadrature
 // and utilizes constant and shared memory to speed things up by about 220x compared to the previous
@@ -410,7 +403,7 @@ __global__ void calc_Bk_model(int N, float3 *ks, double *Bk_bao, double *Bk_nw, 
                          + d_p[10]/(ks[tid].y*ks[tid].z) + d_p[11]/(ks[tid].x*ks[tid].x) 
                          + d_p[11]/(ks[tid].y*ks[tid].y) + d_p[11]/(ks[tid].z*ks[tid].z);
         
-        Bk_mod[tid] = Bk_nw[tid]*(1.0 + (Bk_bao[tid] - 1.0)*damp) + broadband;
+        Bk_mod[tid] = (Bk_nw[tid] + broadband)*(1.0 + (Bk_bao[tid] - 1.0)*damp);
     }
 }
 

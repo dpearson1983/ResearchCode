@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <harppi.h>
+#include "../include/harppi.h"
 #include "../include/hide_harppi.h"
 
 mcmc_parameters::mcmc_parameters(char *file) {
