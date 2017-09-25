@@ -53,21 +53,21 @@ void bkmcmc::model_calc(std::vector<double> &pars) {
                         (2.0*pars[2]*pars[2]*mu23*mu23)/15.0;
         double Z1_31 = pars[0]*pars[0] + pars[0]*pars[2] + (pars[2]*pars[2])/15.0 + 
                         (2.0*pars[2]*pars[2]*mu31*mu31)/15.0;
-        double Z2_12 = pars[1]*pars[1]/2.0 + pars[0]*F12 + (pars[2]*G12*(k1*k1 + k2*k2))/(3.0*k3*k3) +
-                      (pars[0]*pars[2])/2.0 + ((pars[0]*pars[2]*mu12*mu12)/2.0)*(k2/(5.0*k1) - k1/(3.0*k2)) 
-                      + (2.0*pars[2]*pars[2]*mu12*mu12*mu12)/15.0 + (pars[2]*pars[2])/15.0 
-                      - (pars[2]*pars[2]*mu12*mu12*mu12*k2)/(15.0*k1) - (pars[2]*pars[2]*mu12*k2)/(15.0*k1)
-                      - (pars[0]*pars[2]*mu12*mu12)/12.0 - (pars[2]*pars[2]*mu12*k1)/(10.0*k2);
-        double Z2_23 = pars[1]*pars[1]/2.0 + pars[0]*F23 + (pars[2]*G23*(k2*k2 + k3*k3))/(3.0*k1*k1) +
-                      (pars[0]*pars[2])/2.0 + ((pars[0]*pars[2]*mu23*mu23)/2.0)*(k3/(5.0*k2) - k2/(3.0*k3)) 
-                      + (2.0*pars[2]*pars[2]*mu23*mu23*mu23)/15.0 + (pars[2]*pars[2])/15.0 
-                      - (pars[2]*pars[2]*mu23*mu23*mu23*k3)/(15.0*k2) - (pars[2]*pars[2]*mu23*k3)/(15.0*k2)
-                      - (pars[0]*pars[2]*mu23*mu23)/12.0 - (pars[2]*pars[2]*mu23*k2)/(10.0*k3);
-        double Z2_31 = pars[1]*pars[1]/2.0 + pars[0]*F31 + (pars[2]*G31*(k3*k3 + k1*k1))/(3.0*k2*k2) +
-                      (pars[0]*pars[2])/2.0 + ((pars[0]*pars[2]*mu31*mu31)/2.0)*(k1/(5.0*k3) - k3/(3.0*k1)) 
-                      + (2.0*pars[2]*pars[2]*mu31*mu31*mu31)/15.0 + (pars[2]*pars[2])/15.0 
-                      - (pars[2]*pars[2]*mu31*mu31*mu31*k1)/(15.0*k3) - (pars[2]*pars[2]*mu31*k1)/(15.0*k3)
-                      - (pars[0]*pars[2]*mu31*mu31)/12.0 - (pars[2]*pars[2]*mu31*k3)/(10.0*k1);
+        double Z2_12 = pars[1]*pars[1]/2.0 + pars[0]*F12 + 
+                       (pars[2]*G12*(k1*k1 + k2*k2 - 2.0*k1*k2*mu12))/(3.0*k3*k3) - (pars[0]*pars[2])/3.0
+                       + ((pars[0]*pars[2]*mu12)/6.0)*(k1/k2 + k2/k1) + 
+                       ((pars[2]*pars[2]*mu12)/10.0)*(k1/k2 + k2/(3.0*k1) - 1.0) + 
+                       ((pars[2]*pars[2]*mu12*mu12)/5.0)*(1.0/3.0 - k1/(2.0*k2)) - (pars[2]*pars[2])/15.0;
+        double Z2_23 = pars[1]*pars[1]/2.0 + pars[0]*F23 + 
+                       (pars[2]*G23*(k2*k2 + k3*k3 - 2.0*k2*k3*mu23))/(3.0*k1*k1) - (pars[0]*pars[2])/3.0
+                       + ((pars[0]*pars[2]*mu23)/6.0)*(k2/k3 + k3/k2) + 
+                       ((pars[2]*pars[2]*mu23)/10.0)*(k2/k3 + k3/(3.0*k2) - 1.0) + 
+                       ((pars[2]*pars[2]*mu23*mu23)/5.0)*(1.0/3.0 - k2/(2.0*k3)) - (pars[2]*pars[2])/15.0;
+        double Z2_31 = pars[1]*pars[1]/2.0 + pars[0]*F31 + 
+                       (pars[2]*G31*(k3*k3 + k1*k1 - 2.0*k3*k1*mu31))/(3.0*k2*k2) - (pars[0]*pars[2])/3.0
+                       + ((pars[0]*pars[2]*mu31)/6.0)*(k3/k1 + k1/k3) + 
+                       ((pars[2]*pars[2]*mu31)/10.0)*(k3/k1 + k1/(3.0*k3) - 1.0) + 
+                       ((pars[2]*pars[2]*mu31*mu31)/5.0)*(1.0/3.0 - k3/(2.0*k1)) - (pars[2]*pars[2])/15.0;
         bkmcmc::Bk[i] = 2.0*(Z2_12*Z1_12*P_1*P_2 + Z2_23*Z1_23*P_2*P_3 + Z2_31*Z1_31*P_3*P_1);
     }
 }
