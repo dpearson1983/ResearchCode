@@ -294,11 +294,13 @@ bkmcmc::bkmcmc(parameters &p) {
             gsl_linalg_LU_decomp(cov, perm, &s);
             gsl_linalg_LU_invert(cov, perm ,psi);
             
+            double D = (p.getd("num_data") + 1.0)/(p.getd("num_samps") - 1.0);
+            
             for (int i = 0; i < bkmcmc::num_data; ++i) {
                 std::vector<double> row;
                 row.reserve(bkmcmc::num_data);
                 for (int j = 0; j < bkmcmc::num_data; ++j) {
-                    row.push_back(gsl_matrix_get(psi, i, j));
+                    row.push_back((1.0 - D)*gsl_matrix_get(psi, i, j));
                 }
                 bkmcmc::Psi.push_back(row);
             }
