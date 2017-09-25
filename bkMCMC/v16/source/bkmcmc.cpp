@@ -25,7 +25,7 @@ double bkmcmc::get_model_power(std::vector<double> &pars, double k_i) {
     double damp = exp(-0.5*pars[4]*pars[4]*k_i*k_i);
     double broadband = pars[5]*k_i + pars[6] + pars[7]/k_i + pars[8]/(k_i*k_i) + pars[9]/(k_i*k_i*k_i);
     double mono = pars[0]*pars[0] + (2.0/3.0)*pars[0]*pars[2] + (1.0/5.0)*pars[2]*pars[2];
-    return mono*P_nw*(1.0 + (P_bao/P_nw - 1.0)*damp) + broadband;
+    return (mono*P_nw + broadband)*(1.0 + (P_bao/P_nw - 1.0)*damp);
 }
     
 
