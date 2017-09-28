@@ -34,13 +34,13 @@
 __constant__ float4 d_Pk[128]; //   2048 bytes
 __constant__ float d_wi[32];   //    128 bytes
 __constant__ float d_xi[32];   //    128 bytes
-__constant__ float d_p[12];    //     48 bytes
+__constant__ float d_p[5];     //     20 bytes
 __constant__ float d_af[9];    //     36 bytes
 __constant__ float d_ag[9];    //     36 bytes
 __constant__ float d_sigma8;   //      4 bytes
 __constant__ float d_knl;      //      4 bytes
 __constant__ float4 d_n[1000]; //  16000 bytes
-       // total constant memory:   18432 bytes out of 65536 bytes
+       // total constant memory:   18404 bytes out of 65536 bytes
 
 const float w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
                      0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
