@@ -578,7 +578,8 @@ void bkmcmc::run_chain(int num_draws, std::string reals_file, float3 *ks, double
         for (int par = 0; par < bkmcmc::num_pars; ++par) {
             fout << bkmcmc::theta_0[par] << " ";
         }
-        fout << bkmcmc::chisq_0 << "\n";
+        double alpha = pow(bkmcmc::theta_0[3]*bkmcmc::theta_0[4]*bkmcmc::theta_0[4], 1.0/3.0);
+        fout << alpha << " " << bkmcmc::chisq_0 << "\n";
         if (move) {
             std::cout << "\r";
             std::cout.width(15);
