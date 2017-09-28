@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     mcmc_parameters p(argv[1]);
     
     // Generate cubic splines of the input BAO and NW power spectra
-    std::vector<float4> Pk = make_spline(p.input_bao_power);
+    std::vector<float4> Pk = make_spline(p.input_power);
     std::vector<float4> n;
     pkSlope<float> nSpline(p.input_linear_nw_power);
     nSpline.calculate();
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     bk_fit.set_param_limits(p.limit_params, p.min, p.max);
     
     // Run the MCMC chain
-    bk_fit.run_chain(p.num_draws, p.reals_file, d_ks, d_Bk, p.new_chain);
+    bk_fit.run_chain(p.num_draws, p.num_burn, p.reals_file, d_ks, d_Bk, p.new_chain);
     
     // Free device pointers
     gpuErrchk(cudaFree(d_Bk));

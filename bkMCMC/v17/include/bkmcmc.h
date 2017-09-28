@@ -122,7 +122,7 @@ class bkmcmc{
                               std::vector<double> &max_in); // done
         
         // Runs the MCMC chain for num_draws realizations, writing to reals_file
-        void run_chain(int num_draws, std::string reals_file, float3 *ks, double *Bk, bool new_chain);
+        void run_chain(int num_draws, int num_burn, std::string reals_file, float3 *ks, double *Bk, bool new_chain);
         
 };
 
@@ -542,11 +542,11 @@ void bkmcmc::set_param_limits(std::vector<bool> &lim_pars, std::vector<double> &
     }
 }
 
-void bkmcmc::run_chain(int num_draws, std::string reals_file, float3 *ks, double *d_Bk, bool new_chain) {
+void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, float3 *ks, double *d_Bk, bool new_chain) {
     int num_old_rels = 0;
     if (new_chain) {
         std::cout << "Starting new chain..." << std::endl;
-        bkmcmc::burn_in(10000, ks, d_Bk);
+        bkmcmc::burn_in(num_burn, ks, d_Bk);
         bkmcmc::tune_vars(ks, d_Bk);
     } else {
         std::cout << "Resuming previous chain..." << std::endl;
