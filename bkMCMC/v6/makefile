@@ -3,7 +3,7 @@ ARCHS = sm_50
 VXX = nvcc -std=c++11 -arch=$(ARCHS)
 CXXFLAGS = -lharppi -lgsl -lgslcblas -lm
 CXXOPTS = -march=native -O3
-VXXFLAGS = --compiler-options "$(CXXFLAGS) $(CXXOPTS)"
+VXXFLAGS = -Xptxas="-v" --compiler-options "$(CXXFLAGS) $(CXXOPTS)"
 
 build: bkMCMC6.cu hide_harppi.cpp make_spline.cpp
 	$(CXX) -lgsl -lgslcblas -lm $(CXXOPTS) -c -o make_spline.o make_spline.cpp

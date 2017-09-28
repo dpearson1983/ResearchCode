@@ -158,9 +158,12 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     
     // It's convenient to store these quantities to reduce the number of FLOP's needed later
     float sq_ratio = (d_p[4]*d_p[4])/(d_p[3]*d_p[3]) - 1.0;
-    float mu1bar = 1.0 + mu1*mu1*sq_ratio;
-    float mu2bar = 1.0 + mu2*mu2*sq_ratio;
-    float mu3bar = 1.0 + mu3*mu3*sq_ratio;
+    float mu1bar = mu1*mu1*sq_ratio;
+    float mu2bar = mu2*mu2*sq_ratio;
+    float mu3bar = mu3*mu3*sq_ratio;
+    mu1bar += 1.0;
+    mu2bar += 1.0;
+    mu3bar += 1.0;
     
     // Convert the k's and mu's to include the AP effects
     float k1 = (k.x*sqrtf(mu1bar)/d_p[4]);
@@ -274,8 +277,7 @@ __global__ void bispec_gauss_32(float3 *ks, double *Bk) {
     
     // Calculate the value for this thread
     float phi = PI*d_xi[threadIdx.y] + PI;
-    int_grid[tid] = d_wi[threadIdx.x]*d_wi[threadIdx.y]*bispec_model(threadIdx.x, phi, 
-                                                                         ks[blockIdx.x]);
+    int_grid[tid] = d_wi[threadIdx.x]*d_wi[threadIdx.y]*bispec_model(threadIdx.x, phi, ks[blockIdx.x]);
     __syncthreads();
     
     // First step of reduction done by 32 threads
@@ -372,7 +374,7 @@ void bkmcmc::burn_in(int num_burn, float3 *ks, double *d_Bk) {
     double L, R;
     for (int i = 0; i < num_burn; ++i) {
         bool move = bkmcmc::trial(ks, d_Bk, L, R);
-        if (move) {
+        if (true) {
             std::cout << "\r";
             std::cout.width(5);
             std::cout << i;
