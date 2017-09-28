@@ -41,8 +41,10 @@ int main(int argc, char *argv[]) {
     gpuErrchk(cudaMemcpyToSymbol(d_ag, &a_g[0], 9*sizeof(float)));
     
     // Copy the values of sigma_8 and k_nl to the GPU constant memory
-    gpuErrchk(cudaMemcpyToSymbol(d_sigma8, &p.sigma8, sizeof(float)));
-    gpuErrchk(cudaMemcpyToSymbol(d_knl, &p.k_nl, sizeof(float)));
+    float sig8 = (float)p.sigma8;
+    float knl = (float)p.k_nl;
+    gpuErrchk(cudaMemcpyToSymbol(d_sigma8, &sig8, sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_knl, &knl, sizeof(float)));
     
     // Declare a pointer for the integration workspace and allocate memory on the GPU
     double *d_Bk;
