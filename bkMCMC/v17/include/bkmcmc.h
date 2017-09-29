@@ -32,33 +32,75 @@
 #define PI 3.1415926536
 
 __constant__ float4 d_Pk[128]; //   2048 bytes
-__constant__ float d_wi[32];   //    128 bytes
-__constant__ float d_xi[32];   //    128 bytes
-__constant__ float d_p[5];     //     20 bytes
+__constant__ float d_wi[20];   //    128 bytes
+__constant__ float d_xi[20];   //    128 bytes
+__constant__ float d_p[6];     //     20 bytes
 __constant__ float d_af[9];    //     36 bytes
 __constant__ float d_ag[9];    //     36 bytes
-__constant__ float d_sigma8;   //      4 bytes
-__constant__ float d_knl;      //      4 bytes
-__constant__ float4 d_n[1000]; //  16000 bytes
-       // total constant memory:   18404 bytes out of 65536 bytes
+__constant__ float d_sigma8[1];//      4 bytes
+__constant__ float d_knl[1];   //      4 bytes
+__constant__ float4 d_n[128];  //   2048 bytes
+       // total constant memory:    bytes out of 65536 bytes
 
-const float w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
-                     0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
-                     0.087652093004404, 0.087652093004404, 0.083311924226947, 0.083311924226947,
-                     0.078193895787070, 0.078193895787070, 0.072345794108849, 0.072345794108849,
-                     0.065822222776362, 0.065822222776362, 0.058684093478536, 0.058684093478536,
-                     0.050998059262376, 0.050998059262376, 0.042835898022227, 0.042835898022227,
-                     0.034273862913021, 0.034273862913021, 0.025392065309262, 0.025392065309262,
-                     0.016274394730906, 0.016274394730906, 0.007018610009470, 0.007018610009470};
+// const float w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
+//                      0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
+//                      0.087652093004404, 0.087652093004404, 0.083311924226947, 0.083311924226947,
+//                      0.078193895787070, 0.078193895787070, 0.072345794108849, 0.072345794108849,
+//                      0.065822222776362, 0.065822222776362, 0.058684093478536, 0.058684093478536,
+//                      0.050998059262376, 0.050998059262376, 0.042835898022227, 0.042835898022227,
+//                      0.034273862913021, 0.034273862913021, 0.025392065309262, 0.025392065309262,
+//                      0.016274394730906, 0.016274394730906, 0.007018610009470, 0.007018610009470};
+// 
+// const float x_i[] = {-0.048307665687738, 0.048307665687738, -0.144471961582796, 0.144471961582796,
+//                      -0.239287362252137, 0.239287362252137, -0.331868602282128, 0.331868602282128,
+//                      -0.421351276130635, 0.421351276130635, -0.506899908932229, 0.506899908932229,
+//                      -0.587715757240762, 0.587715757240762, -0.663044266930215, 0.663044266930215,
+//                      -0.732182118740290, 0.732182118740290, -0.794483795967942, 0.794483795967942,
+//                      -0.849367613732570, 0.849367613732570, -0.896321155766052, 0.896321155766052,
+//                      -0.934906075937739, 0.934906075937739, -0.964762255587506, 0.964762255587506,
+//                      -0.985611511545268, 0.985611511545268, -0.997263861849481, 0.997263861849481};
 
-const float x_i[] = {-0.048307665687738, 0.048307665687738, -0.144471961582796, 0.144471961582796,
-                     -0.239287362252137, 0.239287362252137, -0.331868602282128, 0.331868602282128,
-                     -0.421351276130635, 0.421351276130635, -0.506899908932229, 0.506899908932229,
-                     -0.587715757240762, 0.587715757240762, -0.663044266930215, 0.663044266930215,
-                     -0.732182118740290, 0.732182118740290, -0.794483795967942, 0.794483795967942,
-                     -0.849367613732570, 0.849367613732570, -0.896321155766052, 0.896321155766052,
-                     -0.934906075937739, 0.934906075937739, -0.964762255587506, 0.964762255587506,
-                     -0.985611511545268, 0.985611511545268, -0.997263861849481, 0.997263861849481};
+// const float w_i[] = {0.123176053726715, 0.122242442990310, 0.122242442990310, 0.119455763535785, 
+//                      0.119455763535785, 0.114858259145712, 0.114858259145712, 0.108519624474264, 
+//                      0.108519624474264, 0.100535949067051, 0.100535949067051, 0.091028261982964, 
+//                      0.091028261982964, 0.080140700335001, 0.080140700335001, 0.068038333812357, 
+//                      0.068038333812357, 0.054904695975835, 0.054904695975835, 0.040939156701306, 
+//                      0.040939156701306, 0.026354986615032, 0.026354986615032, 0.011393798501026, 
+//                      0.011393798501026};
+//                      
+// const float x_i[] = {0.000000000000000, -0.122864692610710, 0.122864692610710, -0.243866883720988, 
+//                      0.243866883720988, -0.361172305809388, 0.361172305809388, -0.473002731445715, 
+//                      0.473002731445715, -0.577662930241223, 0.577662930241223, -0.673566368473468, 
+//                      0.673566368473468, -0.759259263037358, 0.759259263037358, -0.833442628760834, 
+//                      0.833442628760834, -0.894991997878275, 0.894991997878275, -0.942974571228974, 
+//                      0.942974571228974, -0.976663921459518, 0.976663921459518, -0.995556969790498, 
+//                      0.995556969790498};
+
+// const float w_i[] = {0.127938195346752, 0.127938195346752, 0.125837456346828, 0.125837456346828, 
+//                      0.121670472927803, 0.121670472927803, 0.115505668053726, 0.115505668053726, 
+//                      0.107444270115966, 0.107444270115966, 0.097618652104114, 0.097618652104114, 
+//                      0.086190161531953, 0.086190161531953, 0.073346481411080, 0.073346481411080, 
+//                      0.059298584915437, 0.059298584915437, 0.044277438817420, 0.044277438817420, 
+//                      0.028531388628934, 0.028531388628934, 0.012341229799987, 0.012341229799987};
+//                      
+// const float x_i[] = {-0.064056892862606, 0.064056892862606, -0.191118867473616, 0.191118867473616, 
+//                      -0.315042679696163, 0.315042679696163, -0.433793507626045, 0.433793507626045, 
+//                      -0.545421471388840, 0.545421471388840, -0.648093651936975, 0.648093651936975, 
+//                      -0.740124191578554, 0.740124191578554, -0.820001985973903, 0.820001985973903, 
+//                      -0.886415527004401, 0.886415527004401, -0.938274552002733, 0.938274552002733, 
+//                      -0.974728555971310, 0.974728555971310, -0.995187219997021, 0.995187219997021};
+
+const float w_i[] = {0.152753387130726, 0.152753387130726, 0.149172986472604, 0.149172986472604, 
+                     0.142096109318382, 0.142096109318382, 0.131688638449177, 0.131688638449177, 
+                     0.118194531961518, 0.118194531961518, 0.101930119817240, 0.101930119817240, 
+                     0.083276741576705, 0.083276741576705, 0.062672048334109, 0.062672048334109, 
+                     0.040601429800387, 0.040601429800387, 0.017614007139152, 0.017614007139152};
+                     
+const float x_i[] = {-0.076526521133497, 0.076526521133497, -0.227785851141645, 0.227785851141645, 
+                     -0.373706088715419, 0.373706088715419, -0.510867001950827, 0.510867001950827, 
+                     -0.636053680726515, 0.636053680726515, -0.746331906460151, 0.746331906460151, 
+                     -0.839116971822219, 0.839116971822219, -0.912234428251326, 0.912234428251326, 
+                     -0.963971927277914, 0.963971927277914, -0.993128599185095, 0.993128599185095};
                      
 const float a_f[] = {0.484, 3.740, -0.849, 0.392, 1.013, -0.575, 0.128, -0.722, -0.926};
 const float a_g[] = {3.599, -3.879, 0.518, -3.588, 0.336, 7.431, 5.022, -3.104, -0.484};
@@ -138,13 +180,13 @@ __device__ float pk_spline_eval(float k) {
 }
 
 __device__ float n_spline_eval(float k) {
-    float logk = log10f(k);
-    int i = (logk - d_n[0].x)/(d_n[1].x - d_n[0].x);
+    float log_k = log10(k);
+    int i = (log_k - d_n[0].x)/(d_n[1].x - d_n[0].x);
     
-    float n = (d_n[i + 1].z*(logk - d_n[i].x)*(logk - d_n[i].x)*(logk - d_n[i].x))/(6.0*d_n[i].w)
-              + (d_n[i].z*(d_n[i + 1].x - logk)*(d_n[i + 1].x - logk)*(d_n[i + 1].x - logk))/(6.0*d_n[i].w)
-              + (d_n[i + 1].y/d_n[i].w - (d_n[i + 1].z*d_n[i].w)/6.0)*(logk - d_n[i].x)
-              + (d_n[i].y/d_n[i].w - (d_n[i].w*d_n[i].z)/6.0)*(d_n[i + 1].x - logk);
+    float n = (d_n[i + 1].z*(log_k - d_n[i].x)*(log_k - d_n[i].x)*(log_k - d_n[i].x))/(6.0*d_n[i].w)
+              + (d_n[i].z*(d_n[i + 1].x - log_k)*(d_n[i + 1].x - log_k)*(d_n[i + 1].x - log_k))/(6.0*d_n[i].w)
+              + (d_n[i + 1].y/d_n[i].w - (d_n[i + 1].z*d_n[i].w)/6.0)*(log_k - d_n[i].x)
+              + (d_n[i].y/d_n[i].w - (d_n[i].w*d_n[i].z)/6.0)*(d_n[i + 1].x - log_k);
               
     return n;
 }
@@ -158,12 +200,9 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     
     // It's convenient to store these quantities to reduce the number of FLOP's needed later
     float sq_ratio = (d_p[4]*d_p[4])/(d_p[3]*d_p[3]) - 1.0;
-    float mu1bar = mu1*mu1*sq_ratio;
-    float mu2bar = mu2*mu2*sq_ratio;
-    float mu3bar = mu3*mu3*sq_ratio;
-    mu1bar += 1.0;
-    mu2bar += 1.0;
-    mu3bar += 1.0;
+    float mu1bar = 1.0 + mu1*mu1*sq_ratio;
+    float mu2bar = 1.0 + mu2*mu2*sq_ratio;
+    float mu3bar = 1.0 + mu3*mu3*sq_ratio;
     
     // Convert the k's and mu's to include the AP effects
     float k1 = (k.x*sqrtf(mu1bar)/d_p[4]);
@@ -177,6 +216,10 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float n1 = n_spline_eval(k1);
     float n2 = n_spline_eval(k2);
     float n3 = n_spline_eval(k3);
+    
+//     if (isnan(n1)) {
+//         printf("ERROR: n1");
+//     }
     
     mu1 = (mu1*d_p[4])/(d_p[3]*sqrt(mu1bar));
     mu2 = (mu2*d_p[4])/(d_p[3]*sqrt(mu2bar));
@@ -199,19 +242,19 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float Z1k2 = (d_p[0] + d_p[2]*mu2*mu2);
     float Z1k3 = (d_p[0] + d_p[2]*mu3*mu3);
     
-    float q1 = k1/d_knl;
-    float q2 = k2/d_knl;
-    float q3 = k3/d_knl;
+    float q1 = k1/d_knl[0];
+    float q2 = k2/d_knl[0];
+    float q3 = k3/d_knl[0];
     
     float Q1 = (4.0 - powf(2.0,n1))/(1.0 + powf(2.0, n1 + 1.0));
     float Q2 = (4.0 - powf(2.0,n2))/(1.0 + powf(2.0, n2 + 1.0));
     float Q3 = (4.0 - powf(2.0,n3))/(1.0 + powf(2.0, n3 + 1.0));
     
-    float a1 = (1.0 + powf(d_sigma8,d_af[5])*sqrt(0.7*Q1)*powf(q1*d_af[0], n1 + d_af[1]))/(1.0 + 
+    float a1 = (1.0 + powf(d_sigma8[0],d_af[5])*sqrt(0.7*Q1)*powf(q1*d_af[0], n1 + d_af[1]))/(1.0 + 
                 powf(q1*d_af[0], n1 + d_af[1]));
-    float a2 = (1.0 + powf(d_sigma8,d_af[5])*sqrt(0.7*Q2)*powf(q2*d_af[0], n2 + d_af[1]))/(1.0 + 
+    float a2 = (1.0 + powf(d_sigma8[0],d_af[5])*sqrt(0.7*Q2)*powf(q2*d_af[0], n2 + d_af[1]))/(1.0 + 
                 powf(q2*d_af[0], n2 + d_af[1]));
-    float a3 = (1.0 + powf(d_sigma8,d_af[5])*sqrt(0.7*Q3)*powf(q3*d_af[0], n3 + d_af[1]))/(1.0 + 
+    float a3 = (1.0 + powf(d_sigma8[0],d_af[5])*sqrt(0.7*Q3)*powf(q3*d_af[0], n3 + d_af[1]))/(1.0 + 
                 powf(q3*d_af[0], n3 + d_af[1]));
     
     float b1 = (1.0 + 0.2*d_af[2]*(n1 + 3.0)*powf(q1*d_af[6], n1 + 3.0 + d_af[7]))/(1.0 + 
@@ -221,22 +264,22 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float b3 = (1.0 + 0.2*d_af[2]*(n3 + 3.0)*powf(q3*d_af[6], n3 + 3.0 + d_af[7]))/(1.0 + 
                 powf(q3*d_af[6], n3 + 3.5 + d_af[7]));
     
-    float c1 = (1.0 + (4.5*d_af[3])/(1.5 + powf(n1 + 3.0, 4.0))*powf(q1*d_af[4], n1 + 3.0 + d_af[8]))/(1.0 +
+    float c1 = (1.0 + ((4.5*d_af[3])/(1.5 + powf(n1 + 3.0, 4.0)))*powf(q1*d_af[4], n1 + 3.0 + d_af[8]))/(1.0 +
                 powf(q1*d_af[4], n1 + 3.0 + d_af[8]));
-    float c2 = (1.0 + (4.5*d_af[3])/(1.5 + powf(n2 + 3.0, 4.0))*powf(q2*d_af[4], n2 + 3.0 + d_af[8]))/(1.0 +
+    float c2 = (1.0 + ((4.5*d_af[3])/(1.5 + powf(n2 + 3.0, 4.0)))*powf(q2*d_af[4], n2 + 3.0 + d_af[8]))/(1.0 +
                 powf(q2*d_af[4], n2 + 3.0 + d_af[8]));
-    float c3 = (1.0 + (4.5*d_af[3])/(1.5 + powf(n3 + 3.0, 4.0))*powf(q3*d_af[4], n3 + 3.0 + d_af[8]))/(1.0 +
+    float c3 = (1.0 + ((4.5*d_af[3])/(1.5 + powf(n3 + 3.0, 4.0)))*powf(q3*d_af[4], n3 + 3.0 + d_af[8]))/(1.0 +
                 powf(q3*d_af[4], n3 + 3.0 + d_af[8]));
     
     float F12 = FIVESEVENTHS*a1*a2 + 0.5*mu12*(k1/k2 + k2/k1)*b1*b2 + TWOSEVENTHS*mu12*mu12*c1*c2;
     float F23 = FIVESEVENTHS*a2*a3 + 0.5*mu23*(k2/k3 + k3/k2)*b2*b3 + TWOSEVENTHS*mu23*mu23*c2*c3;
     float F31 = FIVESEVENTHS*a3*a1 + 0.5*mu31*(k3/k1 + k1/k3)*b3*b1 + TWOSEVENTHS*mu31*mu31*c3*c1;
     
-    a1 = (1.0 + powf(d_sigma8,d_ag[5])*sqrt(0.7*Q1)*powf(q1*d_ag[0], n1 + d_ag[1]))/(1.0 + 
+    a1 = (1.0 + powf(d_sigma8[0],d_ag[5])*sqrt(0.7*Q1)*powf(q1*d_ag[0], n1 + d_ag[1]))/(1.0 + 
                 powf(q1*d_ag[0], n1 + d_ag[1]));
-    a2 = (1.0 + powf(d_sigma8,d_ag[5])*sqrt(0.7*Q2)*powf(q2*d_ag[0], n2 + d_ag[1]))/(1.0 + 
+    a2 = (1.0 + powf(d_sigma8[0],d_ag[5])*sqrt(0.7*Q2)*powf(q2*d_ag[0], n2 + d_ag[1]))/(1.0 + 
                 powf(q2*d_ag[0], n2 + d_ag[1]));
-    a3 = (1.0 + powf(d_sigma8,d_ag[5])*sqrt(0.7*Q3)*powf(q3*d_ag[0], n3 + d_ag[1]))/(1.0 + 
+    a3 = (1.0 + powf(d_sigma8[0],d_ag[5])*sqrt(0.7*Q3)*powf(q3*d_ag[0], n3 + d_ag[1]))/(1.0 + 
                 powf(q3*d_ag[0], n3 + d_ag[1]));
     
     b1 = (1.0 + 0.2*d_ag[2]*(n1 + 3.0)*powf(q1*d_ag[6], n1 + 3.0 + d_ag[7]))/(1.0 + 
@@ -246,25 +289,31 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     b3 = (1.0 + 0.2*d_ag[2]*(n3 + 3.0)*powf(q3*d_ag[6], n3 + 3.0 + d_ag[7]))/(1.0 + 
                 powf(q3*d_ag[6], n3 + 3.5 + d_ag[7]));
     
-    c1 = (1.0 + (4.5*d_ag[3])/(1.5 + powf(n1 + 3.0, 4.0))*powf(q1*d_ag[4], n1 + 3.0 + d_ag[8]))/(1.0 +
+    c1 = (1.0 + ((4.5*d_ag[3])/((1.5 + powf(n1 + 3.0, 4.0))*powf(q1*d_ag[4], n1 + 3.0 + d_ag[8]))))/(1.0 +
                 powf(q1*d_ag[4], n1 + 3.0 + d_ag[8]));
-    c2 = (1.0 + (4.5*d_ag[3])/(1.5 + powf(n2 + 3.0, 4.0))*powf(q2*d_ag[4], n2 + 3.0 + d_ag[8]))/(1.0 +
+    c2 = (1.0 + ((4.5*d_ag[3])/((1.5 + powf(n2 + 3.0, 4.0))*powf(q2*d_ag[4], n2 + 3.0 + d_ag[8]))))/(1.0 +
                 powf(q2*d_ag[4], n2 + 3.0 + d_ag[8]));
-    c3 = (1.0 + (4.5*d_ag[3])/(1.5 + powf(n3 + 3.0, 4.0))*powf(q3*d_ag[4], n3 + 3.0 + d_ag[8]))/(1.0 +
+    c3 = (1.0 + ((4.5*d_ag[3])/((1.5 + powf(n3 + 3.0, 4.0))*powf(q3*d_ag[4], n3 + 3.0 + d_ag[8]))))/(1.0 +
                 powf(q3*d_ag[4], n3 + 3.0 + d_ag[8]));
     
     float G12 = THREESEVENTHS*a1*a2 + 0.5*mu12*(k1/k2 + k2/k1)*b1*b2 + FOURSEVENTHS*mu12*mu12*c1*c2;
     float G23 = THREESEVENTHS*a2*a3 + 0.5*mu23*(k2/k3 + k3/k2)*b2*b3 + FOURSEVENTHS*mu23*mu23*c2*c3;
     float G31 = THREESEVENTHS*a3*a1 + 0.5*mu31*(k3/k1 + k1/k3)*b3*b1 + FOURSEVENTHS*mu31*mu31*c3*c1;
     
-    float Z2k12 = (0.5*d_p[1] + d_p[0]*F12 + d_p[2]*mu12p*mu12p*G12 + 
-                   0.5*d_p[2]*mu12p*k12*((mu1*Z1k2)/k1 + (mu2*Z1k1)/k2));
-    float Z2k23 = (0.5*d_p[1] + d_p[0]*F23 + d_p[2]*mu23p*mu23p*G23 + 
-                   0.5*d_p[2]*mu23p*k23*((mu2*Z1k3)/k2 + (mu3*Z1k2)/k3));
-    float Z2k31 = (0.5*d_p[1] + d_p[0]*F31 + d_p[2]*mu31p*mu31p*G31 + 
-                   0.5*d_p[2]*mu31p*k31*((mu3*Z1k1)/k3 + (mu1*Z1k3)/k1));
+    float Z2k12 = 0.5*d_p[1] + d_p[0]*(F12 + 0.5*mu12p*k12*(mu1/k1 + mu2/k2)) + d_p[2]*mu12p*mu12p*G12
+                  + 0.5*d_p[2]*d_p[2]*mu12p*k12*mu1*mu2*(mu1/k1 + mu2/k2) 
+                  + 0.5*(-FOURSEVENTHS*(d_p[0] - 1.0))*(mu12*mu12 - 1.0/3.0);
+    float Z2k23 = 0.5*d_p[1] + d_p[0]*(F23 + 0.5*mu23p*k23*(mu2/k2 + mu3/k3)) + d_p[2]*mu23p*mu23p*G23
+                  + 0.5*d_p[2]*d_p[2]*mu23p*k23*mu2*mu3*(mu2/k2 + mu3/k3)
+                  + 0.5*(-FOURSEVENTHS*(d_p[0] - 1.0))*(mu23*mu23 - 1.0/3.0);
+    float Z2k31 = 0.5*d_p[1] + d_p[0]*(F31 + 0.5*mu31p*k31*(mu3/k3 + mu1/k1)) + d_p[2]*mu31p*mu31p*G31
+                  + 0.5*d_p[2]*d_p[2]*mu31p*k31*mu3*mu1*(mu3/k3 + mu1/k1)
+                  + 0.5*(-FOURSEVENTHS*(d_p[0] - 1.0))*(mu31*mu31 - 1.0/3.0);
+                  
+    float den = 1.0 + 0.5*(k1*k1*mu1*mu1 + k2*k2*mu2*mu2 + k3*k3*mu3*mu3)*(k1*k1*mu1*mu1 + k2*k2*mu2*mu2 + k3*k3*mu3*mu3)*d_p[5]*d_p[5];
+    float FoG = 1.0/(den*den);
     
-    return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1);
+    return 2.0*(Z2k12*Z1k1*Z1k2*P1*P2 + Z2k23*Z1k2*Z1k3*P2*P3 + Z2k31*Z1k3*Z1k1*P3*P1)*FoG;
 }
 
 // GPU kernel to calculate the bispectrum model. This kernel uses a fixed 32-point Gaussian quadrature
@@ -273,7 +322,7 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
 __global__ void bispec_gauss_32(float3 *ks, double *Bk) {
     int tid = threadIdx.y + blockDim.x*threadIdx.x; // Block local thread ID
     
-    __shared__ double int_grid[1024]; // Shared memory for all integral values: 65536 bytes
+    __shared__ double int_grid[400]; // Shared memory for all integral values: 65536 bytes
     
     // Calculate the value for this thread
     float phi = PI*d_xi[threadIdx.y] + PI;
@@ -282,14 +331,14 @@ __global__ void bispec_gauss_32(float3 *ks, double *Bk) {
     
     // First step of reduction done by 32 threads
     if (threadIdx.y == 0) {
-        for (int i = 1; i < 32; ++i)
+        for (int i = 1; i < 20; ++i)
             int_grid[tid] += int_grid[tid + i];
     }
     __syncthreads();
     
     // Final reduction and writing result to global memory done only on first thread
     if (tid == 0) {
-        for (int i = 1; i < 32; ++i)
+        for (int i = 1; i < 20; ++i)
             int_grid[0] += int_grid[blockDim.x*i];
         Bk[blockIdx.x] = int_grid[0]/4.0;
     }
@@ -301,7 +350,7 @@ void bkmcmc::model_calc(std::vector<double> &pars, float3 *ks, double *d_Bk) {
         theta[i] = float(pars[i]);
     gpuErrchk(cudaMemcpyToSymbol(d_p, theta.data(), bkmcmc::num_pars*sizeof(float)));
     
-    dim3 num_threads(32,32);
+    dim3 num_threads(20,20);
     
     bispec_gauss_32<<<bkmcmc::num_data, num_threads>>>(ks, d_Bk);
     gpuErrchk(cudaPeekAtLastError());
@@ -358,7 +407,7 @@ bool bkmcmc::trial(float3 *ks, double *d_Bk, double &L, double &R) {
 
 void bkmcmc::write_theta_screen() {
     std::cout.precision(6);
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < bkmcmc::num_pars; ++i) {
         std::cout.width(15);
         std::cout << bkmcmc::theta_0[i];
     }
@@ -374,7 +423,7 @@ void bkmcmc::burn_in(int num_burn, float3 *ks, double *d_Bk) {
     double L, R;
     for (int i = 0; i < num_burn; ++i) {
         bool move = bkmcmc::trial(ks, d_Bk, L, R);
-        if (true) {
+        if (move) {
             std::cout << "\r";
             std::cout.width(5);
             std::cout << i;

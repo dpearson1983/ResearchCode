@@ -24,17 +24,22 @@ int main(int argc, char *argv[]) {
     // Generate cubic splines of the input BAO and NW power spectra
     std::vector<float4> Pk = make_spline(p.input_power);
     std::vector<float4> n;
-    pkSlope<float> nSpline(p.input_linear_nw_power);
+    pkSlope<double> nSpline(p.input_linear_nw_power);
     nSpline.calculate();
     nSpline.get_device_spline(n);
+    std::cout << n.size() << std::endl;
+    
+    for (int i = 0; i < 128; ++i) {
+        std::cout << n[i].x << " " << n[i].y << " " << n[i].z << " " << n[i].w << "\n";
+    }
     
     // Copy the splines to the allocated GPU memory
     gpuErrchk(cudaMemcpyToSymbol(d_Pk, Pk.data(), 128*sizeof(float4)));
-    gpuErrchk(cudaMemcpyToSymbol(d_n, n.data(), 1000*sizeof(float4)));
+    gpuErrchk(cudaMemcpyToSymbol(d_n, n.data(), 128*sizeof(float4)));
     
     // Copy Gaussian Quadrature weights and evaluation point to GPU constant memory
-    gpuErrchk(cudaMemcpyToSymbol(d_wi, &w_i[0], 32*sizeof(float)));
-    gpuErrchk(cudaMemcpyToSymbol(d_xi, &x_i[0], 32*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_wi, &w_i[0], 20*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_xi, &x_i[0], 20*sizeof(float)));
     
     // Copy the fitting parameters from Gil-Marin 2012/2015 to GPU memory
     gpuErrchk(cudaMemcpyToSymbol(d_af, &a_f[0], 9*sizeof(float)));
@@ -43,6 +48,7 @@ int main(int argc, char *argv[]) {
     // Copy the values of sigma_8 and k_nl to the GPU constant memory
     float sig8 = (float)p.sigma8;
     float knl = (float)p.k_nl;
+    std::cout << sig8 << ", " << knl << std::endl;
     gpuErrchk(cudaMemcpyToSymbol(d_sigma8, &sig8, sizeof(float)));
     gpuErrchk(cudaMemcpyToSymbol(d_knl, &knl, sizeof(float)));
     
