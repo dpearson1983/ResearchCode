@@ -217,10 +217,6 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float n2 = n_spline_eval(k2);
     float n3 = n_spline_eval(k3);
     
-//     if (isnan(n1)) {
-//         printf("ERROR: n1");
-//     }
-    
     mu1 = (mu1*d_p[4])/(d_p[3]*sqrt(mu1bar));
     mu2 = (mu2*d_p[4])/(d_p[3]*sqrt(mu2bar));
     mu3 = (mu3*d_p[4])/(d_p[3]*sqrt(mu3bar));
@@ -265,11 +261,11 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
                 powf(q3*d_af[6], n3 + 3.5 + d_af[7]));
     
     float c1 = (1.0 + ((4.5*d_af[3])/(1.5 + powf(n1 + 3.0, 4.0)))*powf(q1*d_af[4], n1 + 3.0 + d_af[8]))/(1.0 +
-                powf(q1*d_af[4], n1 + 3.0 + d_af[8]));
+                powf(q1*d_af[4], n1 + 3.5 + d_af[8]));
     float c2 = (1.0 + ((4.5*d_af[3])/(1.5 + powf(n2 + 3.0, 4.0)))*powf(q2*d_af[4], n2 + 3.0 + d_af[8]))/(1.0 +
-                powf(q2*d_af[4], n2 + 3.0 + d_af[8]));
+                powf(q2*d_af[4], n2 + 3.5 + d_af[8]));
     float c3 = (1.0 + ((4.5*d_af[3])/(1.5 + powf(n3 + 3.0, 4.0)))*powf(q3*d_af[4], n3 + 3.0 + d_af[8]))/(1.0 +
-                powf(q3*d_af[4], n3 + 3.0 + d_af[8]));
+                powf(q3*d_af[4], n3 + 3.5 + d_af[8]));
     
     float F12 = FIVESEVENTHS*a1*a2 + 0.5*mu12*(k1/k2 + k2/k1)*b1*b2 + TWOSEVENTHS*mu12*mu12*c1*c2;
     float F23 = FIVESEVENTHS*a2*a3 + 0.5*mu23*(k2/k3 + k3/k2)*b2*b3 + TWOSEVENTHS*mu23*mu23*c2*c3;
@@ -290,11 +286,11 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
                 powf(q3*d_ag[6], n3 + 3.5 + d_ag[7]));
     
     c1 = (1.0 + ((4.5*d_ag[3])/((1.5 + powf(n1 + 3.0, 4.0))*powf(q1*d_ag[4], n1 + 3.0 + d_ag[8]))))/(1.0 +
-                powf(q1*d_ag[4], n1 + 3.0 + d_ag[8]));
+                powf(q1*d_ag[4], n1 + 3.5 + d_ag[8]));
     c2 = (1.0 + ((4.5*d_ag[3])/((1.5 + powf(n2 + 3.0, 4.0))*powf(q2*d_ag[4], n2 + 3.0 + d_ag[8]))))/(1.0 +
-                powf(q2*d_ag[4], n2 + 3.0 + d_ag[8]));
+                powf(q2*d_ag[4], n2 + 3.5 + d_ag[8]));
     c3 = (1.0 + ((4.5*d_ag[3])/((1.5 + powf(n3 + 3.0, 4.0))*powf(q3*d_ag[4], n3 + 3.0 + d_ag[8]))))/(1.0 +
-                powf(q3*d_ag[4], n3 + 3.0 + d_ag[8]));
+                powf(q3*d_ag[4], n3 + 3.5 + d_ag[8]));
     
     float G12 = THREESEVENTHS*a1*a2 + 0.5*mu12*(k1/k2 + k2/k1)*b1*b2 + FOURSEVENTHS*mu12*mu12*c1*c2;
     float G23 = THREESEVENTHS*a2*a3 + 0.5*mu23*(k2/k3 + k3/k2)*b2*b3 + FOURSEVENTHS*mu23*mu23*c2*c3;
@@ -423,7 +419,7 @@ void bkmcmc::burn_in(int num_burn, float3 *ks, double *d_Bk) {
     double L, R;
     for (int i = 0; i < num_burn; ++i) {
         bool move = bkmcmc::trial(ks, d_Bk, L, R);
-        if (move) {
+        if (true) {
             std::cout << "\r";
             std::cout.width(5);
             std::cout << i;

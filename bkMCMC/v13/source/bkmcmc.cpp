@@ -20,11 +20,12 @@ std::mt19937_64 gen(seeder());
 std::uniform_real_distribution<double> dist(-1.0, 1.0);
 
 double bkmcmc::get_model_power(std::vector<double> &pars, double k_i) {
-    double P_nw = gsl_spline_eval(bkmcmc::Pk_nw, k_i/pars[1], bkmcmc::acc_nw);
+    double P_nw = gsl_spline_eval(bkmcmc::Pk_nw, k_i, bkmcmc::acc_nw);
+    double P_nwa = gsl_spline_eval(bkmcmc::Pk_nw, k_i/pars[1], bkmcmc::acc_nw);
     double P_bao = gsl_spline_eval(bkmcmc::Pk_bao, k_i/pars[1], bkmcmc::acc_bao);
     double damp = exp(-0.5*pars[2]*pars[2]*k_i*k_i);
     double broadband = pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
-    return pars[0]*pars[0]*P_nw*(1.0 + (P_bao/P_nw - 1.0)*damp) + broadband;
+    return (pars[0]*pars[0]*P_nw + broadband)*(1.0 + (P_bao/P_nwa - 1.0)*damp);
 }
     
 
@@ -34,7 +35,7 @@ void bkmcmc::model_calc(std::vector<double> &pars) {
         double P_1 = get_model_power(pars, bkmcmc::k[i].x);
         double P_2 = get_model_power(pars, bkmcmc::k[i].y);
         double P_3 = get_model_power(pars, bkmcmc::k[i].z);
-        double broadband = pars[8]*(1.0/(k[i].x*k[i].y) + 1.0/(k[i].y*k[i].z) + 1.0/(k[i].z*k[i].x)) + pars[9]/(k[i].x*k[i].y*k[i].z) + pars[10] + pars[11]*(k[i].x + k[i].y + k[i].z);
+        double broadband = pars[13]*(k[i].x/k[i].y + k[i].y/k[i].z + k[i].z/k[i].x + k[i].y/k[i].x + k[i].z/k[i].y + k[i].x/k[i].z) + pars[14]*((k[i].x*k[i].x)/(k[i].y*k[i].y) + (k[i].y*k[i].y)/(k[i].z*k[i].z) + (k[i].z*k[i].z)/(k[i].x*k[i].x) + (k[i].y*k[i].y)/(k[i].x*k[i].x) + (k[i].z*k[i].z)/(k[i].y*k[i].y) + (k[i].x*k[i].x)/(k[i].z*k[i].z)) + pars[15]*((k[i].x*k[i].x)/(k[i].y*k[i].z) + (k[i].y*k[i].y)/(k[i].z*k[i].x) + (k[i].z*k[i].z)/(k[i].x*k[i].y)) + pars[12]*(k[i].x + k[i].y + k[i].z) + pars[13] + pars[8]*(1.0/(k[i].x*k[i].y) + 1.0/(k[i].y*k[i].z) + 1.0/(k[i].z*k[i].x)) + pars[9]/(k[i].x*k[i].y*k[i].z) + pars[10] + pars[11]*(k[i].x + k[i].y + k[i].z);
         bkmcmc::Bk[i] = 2.0*(P_1*P_2 + P_2*P_3 + P_3*P_1) + broadband;
     }
 }
@@ -257,6 +258,8 @@ bkmcmc::bkmcmc(parameters &p) {
             }
             fin.close();
             
+            double scale = (1000.0 - 691.0 - 2.0)/(1000.0 - 1.0);
+            
             int s;
             gsl_linalg_LU_decomp(cov, perm, &s);
             gsl_linalg_LU_invert(cov, perm ,psi);
@@ -265,7 +268,7 @@ bkmcmc::bkmcmc(parameters &p) {
                 std::vector<double> row;
                 row.reserve(bkmcmc::num_data);
                 for (int j = 0; j < bkmcmc::num_data; ++j) {
-                    row.push_back(gsl_matrix_get(psi, i, j));
+                    row.push_back(scale*gsl_matrix_get(psi, i, j));
                 }
                 bkmcmc::Psi.push_back(row);
             }

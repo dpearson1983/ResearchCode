@@ -31,11 +31,11 @@
 #define FIVESEVENTHS 0.714285714286
 #define PI 3.1415926536
 
-__constant__ float4 d_Pk[128]; //  16384 bytes
-// __constant__ float4 d_Pknw[128];  //  16384 bytes
-__constant__ float d_wi[32];   //   1024 bytes
-__constant__ float d_xi[32];   //   1024 bytes
-__constant__ float d_p[12];     //    768 bytes
+__constant__ float4 d_Pk[128]; //  2048 bytes
+// __constant__ float4 d_Pknw[128];  //  048 bytes
+__constant__ float d_wi[32];   //   128 bytes
+__constant__ float d_xi[32];   //   128 bytes
+__constant__ float d_p[12];     //    48 bytes
        // total constant memory:   35584 bytes out of 65536 bytes
 
 const float w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
