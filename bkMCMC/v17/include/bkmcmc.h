@@ -204,14 +204,6 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float mu2bar = 1.0 + mu2*mu2*sq_ratio;
     float mu3bar = 1.0 + mu3*mu3*sq_ratio;
     
-//     float q1 = k.x/d_knl[0];
-//     float q2 = k.y/d_knl[0];
-//     float q3 = k.z/d_knl[0];
-//     
-//     float n1 = n_spline_eval(k.x);
-//     float n2 = n_spline_eval(k.y);
-//     float n3 = n_spline_eval(k.z);
-    
     // Convert the k's and mu's to include the AP effects
     float k1 = (k.x*sqrtf(mu1bar)/d_p[4]);
     float k2 = (k.y*sqrtf(mu2bar)/d_p[4]);
@@ -241,6 +233,14 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float Z1k1 = (d_p[0] + d_p[2]*mu1*mu1);
     float Z1k2 = (d_p[0] + d_p[2]*mu2*mu2);
     float Z1k3 = (d_p[0] + d_p[2]*mu3*mu3);
+    
+//     float q1 = k.x/d_knl[0];
+//     float q2 = k.y/d_knl[0];
+//     float q3 = k.z/d_knl[0];
+//     
+//     float n1 = n_spline_eval(k.x);
+//     float n2 = n_spline_eval(k.y);
+//     float n3 = n_spline_eval(k.z);
     
 //     float Q1 = (4.0 - powf(2.0,n1))/(1.0 + powf(2.0, n1 + 1.0));
 //     float Q2 = (4.0 - powf(2.0,n2))/(1.0 + powf(2.0, n2 + 1.0));
