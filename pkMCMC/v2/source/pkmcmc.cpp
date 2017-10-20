@@ -65,8 +65,8 @@ double pkmcmc::model_func(std::vector<double> &pars, int j) {
     double P_nwa = gsl_spline_eval(pkmcmc::Pk_nw, k_i/pars[1], pkmcmc::acc_nw);
     double P_bao = gsl_spline_eval(pkmcmc::Pk_bao, k_i/pars[1], pkmcmc::acc_bao);
     double damp = exp(-0.5*pars[2]*pars[2]*k_i*k_i);
-    double broadband = pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
-    double result = (pars[0]*pars[0]*P_nwa + broadband)*(1.0 + (P_bao/P_nwa - 1.0)*damp);
+    double broadband = pars[8]*k_i*k_i + pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
+    double result = (pars[0]*pars[0]*P_nw + broadband)*(1.0 + (P_bao/P_nwa - 1.0)*damp);
     return result;
 }
 
@@ -305,6 +305,18 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
     std::cout << "Calculating initial model and chi^2..." << std::endl;
     pkmcmc::model_calc(pkmcmc::theta_0);
     pkmcmc::chisq_0 = pkmcmc::calc_chi_squared();
+    
+    std::ofstream fout("Pk_Mod_check.dat");
+    fout.precision(15);
+    for (int i = 0; i < pkmcmc::num_data; ++i) {
+        double k_i = pkmcmc::k[i];
+        double P_nw = gsl_spline_eval(pkmcmc::pkmcmc::Pk_nw, k_i, pkmcmc::acc_nw);
+        double broadband = pars[8]*k_i*k_i + pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
+        double norm = (pars[0]*pars[0]*P_nw + broadband);
+        fout << pkmcmc::k[i] << " " << pkmcmc::model[i] << " " << pkmcmc::data[i] << " ";
+        fout << pkmcmc::model[i]/norm << " " << pkmcmc::data[i]/norm << "\n";
+    }
+    fout.close();
 }
 
 void pkmcmc::check_init() {
