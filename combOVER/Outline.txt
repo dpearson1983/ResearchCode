@@ -1,0 +1,46 @@
+Combined P(k) and B(k_1, k_2, k_3) fitting code:
+
+MCMC Class:
+    1. Data Elements:
+        - std::vector<double> data, model, theta_0, theta_i, param_min, param_max
+        - std::vector<std::vector<double> Psi
+        - class power_spectrum (come up with better name)
+        - class bispectrum
+        - double chisq_0, chisq_i
+        - std::vector<bool> limit_parameters
+        - int num_data, num_pars
+    2. Private member functions:
+        - void model_calc(std::vector<double> &pars, ...)
+        - void get_param_real()
+        - double calc_chi_squared()
+        - bool trial
+        - void write_theta_screen()
+        - void burn_in(int num_burn, ...)
+        - void tune_vars()
+    3. Public member functions:
+        - initializer(std::string data_file, std::string cov_file, std::vector<double> &pars,
+                      std::vector<double> &vars, ...)
+        - void set_param_limits(std::vector<bool> &lim_pars, std::vector<double> &min, 
+                                std::vector<double> &max)
+        - void run_chain(int num_draws, int num_burn, std::string reals_file, bool new_chain, ...)
+
+Power spectrum Class:
+    1. Data Elements:
+        - std::vector<double> k, P
+        - int num_vals
+        - gsl_spline *Pk_bao, *Pk_nw
+        - gsl_interp_accel *acc_bao, *acc_nw
+    2. Public member functions:
+        - intializer
+        - void calculate
+        - double get(int i);
+
+Bispectrum Class:
+    1. Data Elements:
+        - std::vector<double> B
+        - std::vector<float3> ks
+        - int num_vals
+    2. Public member functions:
+        - initializer
+        - void calculate
+        - double get(int i);

@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
     gpuErrchk(cudaMemcpyToSymbol(d_n, n.data(), 128*sizeof(float4)));
     
     // Copy Gaussian Quadrature weights and evaluation point to GPU constant memory
-    gpuErrchk(cudaMemcpyToSymbol(d_wi, &w_i[0], 20*sizeof(float)));
-    gpuErrchk(cudaMemcpyToSymbol(d_xi, &x_i[0], 20*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_wi, &w_i[0], 32*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_xi, &x_i[0], 32*sizeof(float)));
     
     // Copy the fitting parameters from Gil-Marin 2012/2015 to GPU memory
     gpuErrchk(cudaMemcpyToSymbol(d_af, &a_f[0], 9*sizeof(float)));
