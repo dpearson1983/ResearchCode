@@ -10,7 +10,7 @@ struct mcmc_parameters{
     std::string reals_file, variances_file, cov_file;
     std::string pk_data_file, bk_data_file;
     bool new_chain;
-    std::vector<double> par_vars, mins, maxs;
+    std::vector<double> start_params, par_vars, mins, maxs;
     std::vector<bool> limit_pars;
     
     mcmc_parameters(char *file);

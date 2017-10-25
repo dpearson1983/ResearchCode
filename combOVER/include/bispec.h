@@ -81,9 +81,13 @@ class bispec{
         // Returns the value stored at B[i]
         double get(int i);
         
+        float3 getx(int i);
+        
+        // Return the number of values
+        size_t size();
 };
 
-bispec::read_data_file(std::string in_file) {
+void bispec::read_data_file(std::string in_file) {
     if (check_file_exists(in_file)) {
         std::ifstream fin(in_file);
         while (!fin.eof()) {
@@ -127,11 +131,20 @@ void bispec::calculate(std::vector<double> &pars, float3 *ks, double *Bk) {
     bispec_gauss_32<<<bispec::num_vals, num_threads>>>(ks, Bk);
     gpuErrchk(cudaPeekAtLastError());
     gpuErrchk(cudaDeviceSynchronize());
-    gpuErrchk(cudaMemcpy(bispec::B.data(), Bk, bispec::num_vals*sizeof(double)));
+    gpuErrchk(cudaMemcpy(bispec::B.data(), Bk, bispec::num_vals*sizeof(double), 
+                         cudaMemcpyDeviceToHost));
 }
 
 double bispec::get(int i) {
     return bispec::B[i];
+}
+
+float3 bispec::getx(int i) {
+    return bispec::k[i];
+}
+
+size_t bispec::size() {
+    return bispec::num_vals;
 }
 
 __device__ float pk_spline_eval(float k) {
@@ -239,4 +252,5 @@ __global__ void bispec_gauss_32(float3 *ks, double *Bk) {
         Bk[blockIdx.x] = int_grid[0]/4.0;
     }
 }
-    
+
+#endif

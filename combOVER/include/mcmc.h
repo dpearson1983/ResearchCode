@@ -35,6 +35,7 @@
 #include <vector_types.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
+#include "gpuerrchk.h"
 #include "hide_harppi.h"
 #include "powerspec.h"
 #include "bispec.h"
@@ -65,18 +66,18 @@ class mcmc{
     
     void write_theta_screen();
     
-    void burn_in(int num_burn, float3 *ks, double *Bk);
+    void burn_in(float3 *ks, double *Bk);
     
     void tune_vars(float3 *ks, double *Bk);
     
     public:
         mcmc();
         
-        mcmc(mcmc_parameters p, float *ks, double *Bk);
+        mcmc(mcmc_parameters p, float3 *ks, double *Bk);
         
-        void initialize(mcmc_paramters p, float *ks, double *Bk);
+        void initialize(mcmc_parameters p, float3 *ks, double *Bk);
         
-        void run_chain(float *ks, double *Bk);
+        void run_chain(float3 *ks, double *Bk);
         
 };
 
@@ -87,7 +88,7 @@ void mcmc::set_Psi(std::string cov_file) {
     if (check_file_exists(cov_file)) {
         gsl_matrix *cov = gsl_matrix_alloc(mcmc::num_data, mcmc::num_data);
         gsl_matrix *psi = gsl_matrix_alloc(mcmc::num_data, mcmc::num_data);
-        gsl_permtuation *perm = gsl_permutation_alloc(mcmc::num_data);
+        gsl_permutation *perm = gsl_permutation_alloc(mcmc::num_data);
         std::ifstream fin(cov_file);
         for (size_t i = 0; i < mcmc::num_data; ++i) {
             for (size_t j = 0; j < mcmc::num_data; ++j) {
@@ -130,12 +131,12 @@ void mcmc::model_calc(std::vector<double> &pars, float3 *ks, double *Bk) {
     mcmc::Pk_mod.calculate(pars);
     mcmc::Bk_mod.calculate(pars, ks, Bk);
     
-    for (size_t i = 0; i < mcmc::Pk_mod.num_vals; ++i) {
+    for (size_t i = 0; i < mcmc::Pk_mod.size(); ++i) {
         mcmc::model[i] = Pk_mod.get(i);
     }
     
-    for (size_t i = 0; i < mcmc::Bk_mod.num_vals; ++i) {
-        mcmc::model[i + mcmc::Pk_mod.num_vals] = Bk_mod.get(i);
+    for (size_t i = 0; i < mcmc::Bk_mod.size(); ++i) {
+        mcmc::model[i + mcmc::Pk_mod.size()] = Bk_mod.get(i);
     }
 }
 
@@ -271,8 +272,8 @@ mcmc::mcmc(): gen(seeder()) {
 
 // Constructor that automatically calls the initialize function and also ensures that the random number
 // generator is seeded and initialized.
-mcmc::mcmc(mcmc_parameters p): gen(seeder()) {
-    mcmc::initialize(p);
+mcmc::mcmc(mcmc_parameters p, float3 *ks, double *Bk): gen(seeder()) {
+    mcmc::initialize(p, ks, Bk);
 }
 
 // Handles the initialization of the mcmc object so that the chain can be run.
@@ -282,7 +283,7 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     mcmc::Bk_mod.initialize(p.bk_data_file, p.in_nonlin_file);
     
     // Initialize some individual variables
-    mcmc::num_data = mcmc::Pk_mod.num_vals + mcmc::Bk_mod.num_vals;
+    mcmc::num_data = mcmc::Pk_mod.size() + mcmc::Bk_mod.size();
     mcmc::num_draws = p.num_draws;
     mcmc::num_mocks = p.num_mocks;
     mcmc::num_params = p.num_params;
@@ -293,10 +294,10 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     mcmc::variances_file = p.variances_file;
     
     // Copy the data to the mcmc object
-    for (size_t i = 0; i < mcmc::Pk_mod.num_vals; ++i) {
+    for (size_t i = 0; i < mcmc::Pk_mod.size(); ++i) {
         mcmc::data.push_back(mcmc::Pk_mod.get(i));
     }
-    for (size_t i = 0; i < mcmc::Bk_mod.num_vals; ++i) {
+    for (size_t i = 0; i < mcmc::Bk_mod.size(); ++i) {
         mcmc::data.push_back(mcmc::Bk_mod.get(i));
     }
     
@@ -313,10 +314,17 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     // Read in the input covariance matrix and invert it
     mcmc::set_Psi(p.cov_file);
     
+    std::vector<double> B_temp;
+    std::vector<float3> k_temp;
+    for (size_t i = 0; i < mcmc::Bk_mod.size(); ++i) {
+        B_temp.push_back(Bk_mod.get(i));
+        k_temp.push_back(Bk_mod.getx(i));
+    }
+    
     // Initialize the device pointers needed for the bispectrum calculation
-    gpuErrchk(cudaMemcpy(ks, mcmc::Bk_mod.ks.data(), mcmc::Bk_mod.num_vals*sizeof(float3), 
+    gpuErrchk(cudaMemcpy(ks, k_temp.data(), mcmc::Bk_mod.size()*sizeof(float3), 
                          cudaMemcpyHostToDevice));
-    gpuErrchk(cudaMemcpy(Bk, mcmc::Bk_mod.B.data(), mcmc::Bk_mod.num_vals*sizeof(double),
+    gpuErrchk(cudaMemcpy(Bk, B_temp.data(), mcmc::Bk_mod.size()*sizeof(double),
                          cudaMemcpyHostToDevice));
     
     // Calculate the initial model for the starting parameter values
@@ -324,10 +332,10 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     mcmc::Bk_mod.calculate(mcmc::theta_0, ks, Bk);
     
     // Copy that model back to the mcmc object
-    for (size_t i = 0; i < mcmc::Pk_mod.num_vals; ++i) {
+    for (size_t i = 0; i < mcmc::Pk_mod.size(); ++i) {
         mcmc::model.push_back(Pk_mod.get(i));
     }
-    for (size_t i = 0; i < mcmc::Bk_mod.num_vals; ++i) {
+    for (size_t i = 0; i < mcmc::Bk_mod.size(); ++i) {
         mcmc::model.push_back(Bk_mod.get(i));
     }
     
@@ -357,17 +365,19 @@ void mcmc::run_chain(float3 *ks, double *Bk) {
                 fin >> mcmc::chisq_0;
                 ++real_num;
             }
+            fin.close();
         }
-    }
-    
-    std::string error_msg;
-    
-    if (mcmc::new_chain && check_file_exists(mcmc::reals_file, error_msg)) {
-        std::stringstream error;
-        error << "The new_chain option was selected, but the realizations file already exists.\n";
-        error << "Please change the file name or the new_chain option in the parameter file and re-run."
-        error << std::endl;
-        throw std::runtime_error(error.str());
+    } else {
+        std::string error_msg;
+        if (check_file_exists(mcmc::reals_file, error_msg)) {
+            std::stringstream error;
+            error << "The new_chain option was selected, but the realizations file already exists.\n";
+            error << "Please change the file name or the new_chain option in the parameter file and re-run.";
+            error << std::endl;
+            throw std::runtime_error(error.str());
+        }
+        mcmc::burn_in(ks, Bk);
+        mcmc::tune_vars(ks, Bk);
     }
     
     std::ofstream fout(mcmc::reals_file, std::ios::app);
@@ -389,3 +399,5 @@ void mcmc::run_chain(float3 *ks, double *Bk) {
     std::cout << std::endl;
     fout.close();
 }
+
+#endif

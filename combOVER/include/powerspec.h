@@ -55,6 +55,8 @@ class powerspec{
         // Returns the model value stored at P[i]
         double get(int i);
         
+        // Returns the number of values
+        size_t size();
 };
 
 void powerspec::init_spline(std::string in_file, gsl_spline *Pk, gsl_interp_accel *acc) {
@@ -72,7 +74,7 @@ void powerspec::init_spline(std::string in_file, gsl_spline *Pk, gsl_interp_acce
                 pin.push_back(pt);
             }
         }
-        fin.close()
+        fin.close();
         
         // Use the appropriate GSL functions to initialize the spline and workspace
         Pk = gsl_spline_alloc(gsl_interp_cspline, pin.size());
@@ -94,7 +96,7 @@ void powerspec::read_data_file(std::string in_file) {
                 powerspec::P.push_back(pt);
             }
         }
-        fin.close()
+        fin.close();
         powerspec::num_vals = powerspec::P.size();
     }
 }
@@ -131,8 +133,12 @@ void powerspec::calculate(std::vector<double> &pars) {
     }
 }
 
-double get(int i) {
+double powerspec::get(int i) {
     return powerspec::P[i];
+}
+
+size_t powerspec::size() {
+    return powerspec::num_vals;
 }
 
 #endif
