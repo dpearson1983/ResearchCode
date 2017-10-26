@@ -77,6 +77,8 @@ class mcmc{
         
         void initialize(mcmc_parameters p, float3 *ks, double *Bk);
         
+        void write_Psi(std::string file);
+        
         void run_chain(float3 *ks, double *Bk);
         
 };
@@ -110,6 +112,7 @@ void mcmc::set_Psi(std::string cov_file) {
         gsl_linalg_LU_invert(cov, perm, psi);
         
         double D = double(mcmc::num_data + 1.0)/(double(mcmc::num_mocks - 1.0));
+//         double D = 0;
         
         for (size_t i = 0; i < mcmc::num_data; ++i) {
             std::vector<double> row;
@@ -167,7 +170,7 @@ double mcmc::calc_chi_squared() {
     double chisq = 0.0;
     for (size_t i = 0; i < mcmc::num_data; ++i) {
         for (size_t j = i; j < mcmc::num_data; ++j) {
-            chisq += (mcmc::data[i] - mcmc::model[i])*Psi[i][j]*(mcmc::data[j] - mcmc::model[j]);
+            chisq += (mcmc::data[i] - mcmc::model[i])*mcmc::Psi[i][j]*(mcmc::data[j] - mcmc::model[j]);
         }
     }
     return chisq;
@@ -203,12 +206,12 @@ bool mcmc::trial(float3 *ks, double *Bk) {
 void mcmc::write_theta_screen() {
     std::cout.precision(6);
     for (size_t i = 0; i < mcmc::num_write; ++i) {
-        std::cout.width(10);
+        std::cout.width(12);
         std::cout << mcmc::theta_0[i];
     }
-    std::cout.width(10);
+    std::cout.width(12);
     std::cout << pow(mcmc::theta_0[3]*mcmc::theta_0[4]*mcmc::theta_0[4], 1.0/3.0);
-    std::cout.width(10);
+    std::cout.width(12);
     std::cout << mcmc::chisq_0;
     std::cout.flush();
 }
@@ -217,8 +220,14 @@ void mcmc::write_theta_screen() {
 // parameter space.
 void mcmc::burn_in(float3 *ks, double *Bk) {
     std::cout << "Burning the first " << mcmc::num_burn << " trials..." << std::endl;
+    std::ofstream fout("burn_in.dat");
+    fout.precision(15);
     for (size_t i = 0; i < mcmc::num_burn; ++i) {
         bool move = mcmc::trial(ks, Bk);
+        for (size_t j = 0; j < mcmc::num_params; ++j)
+            fout << mcmc::theta_0[j] << " ";
+        fout << pow(mcmc::theta_0[3]*mcmc::theta_0[4]*mcmc::theta_0[4], 1.0/3.0) << " ";
+        fout << mcmc::chisq_0 << "\n";
         if (move) {
             std::cout << "\r";
             std::cout.width(10);
@@ -226,6 +235,7 @@ void mcmc::burn_in(float3 *ks, double *Bk) {
             mcmc::write_theta_screen();
         }
     }
+    fout.close();
     std::cout << std::endl;
 }
 
@@ -279,10 +289,13 @@ mcmc::mcmc(mcmc_parameters p, float3 *ks, double *Bk): gen(seeder()) {
 // Handles the initialization of the mcmc object so that the chain can be run.
 void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     // Initialize the powerspec and bispec objects
+    std::cout << "Initializing powerspec object..." << std::endl;
     mcmc::Pk_mod.initialize(p.pk_data_file, p.in_bao_file, p.in_nw_file);
+    std::cout << "Initializing bispec object..." << std::endl;
     mcmc::Bk_mod.initialize(p.bk_data_file, p.in_nonlin_file);
     
     // Initialize some individual variables
+    std::cout << "Copying over some values to mcmc object..." << std::endl;
     mcmc::num_data = mcmc::Pk_mod.size() + mcmc::Bk_mod.size();
     mcmc::num_draws = p.num_draws;
     mcmc::num_mocks = p.num_mocks;
@@ -294,6 +307,7 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     mcmc::variances_file = p.variances_file;
     
     // Copy the data to the mcmc object
+    std::cout << "Copying data vector to mcmc object..." << std::endl;
     for (size_t i = 0; i < mcmc::Pk_mod.size(); ++i) {
         mcmc::data.push_back(mcmc::Pk_mod.get(i));
     }
@@ -302,6 +316,7 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     }
     
     // Initialize all the stuff associated with the parameters
+    std::cout << "Initializing model parameters..." << std::endl;
     for (size_t i = 0; i < mcmc::num_params; ++i) {
         mcmc::theta_0.push_back(p.start_params[i]);
         mcmc::min_pars.push_back(p.mins[i]);
@@ -312,26 +327,33 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     }
     
     // Read in the input covariance matrix and invert it
+    std::cout << "Reading in and inverting covariance..." << std::endl;
     mcmc::set_Psi(p.cov_file);
     
     std::vector<double> B_temp;
     std::vector<float3> k_temp;
+    std::cout << "Copying data to initialize device pointers..." << std::endl;
     for (size_t i = 0; i < mcmc::Bk_mod.size(); ++i) {
         B_temp.push_back(Bk_mod.get(i));
         k_temp.push_back(Bk_mod.getx(i));
     }
     
     // Initialize the device pointers needed for the bispectrum calculation
+    std::cout << "Initializing device pointers..." << std::endl;
     gpuErrchk(cudaMemcpy(ks, k_temp.data(), mcmc::Bk_mod.size()*sizeof(float3), 
                          cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemcpy(Bk, B_temp.data(), mcmc::Bk_mod.size()*sizeof(double),
                          cudaMemcpyHostToDevice));
     
     // Calculate the initial model for the starting parameter values
+    std::cout << "Calculating initial model..." << std::endl;
+    std::cout << "   Power spectrum..." << std::endl;
     mcmc::Pk_mod.calculate(mcmc::theta_0);
+    std::cout << "   Bispectrum..." << std::endl;
     mcmc::Bk_mod.calculate(mcmc::theta_0, ks, Bk);
     
     // Copy that model back to the mcmc object
+    std::cout << "Copying model to the mcmc object..." << std::endl;
     for (size_t i = 0; i < mcmc::Pk_mod.size(); ++i) {
         mcmc::model.push_back(Pk_mod.get(i));
     }
@@ -340,7 +362,20 @@ void mcmc::initialize(mcmc_parameters p, float3 *ks, double *Bk) {
     }
     
     // Get the chi^2 of the initial model
+    std::cout << "Calculating initial chi^2..." << std::endl;
     mcmc::chisq_0 = mcmc::calc_chi_squared();
+    std::cout << "    chi^2 = " << mcmc::chisq_0 << std::endl;
+}
+
+void mcmc::write_Psi(std::string file) {
+    std::ofstream fout(file);
+    fout.precision(15);
+    for (size_t i = 0; i < mcmc::num_data; ++i) {
+        for (size_t j = 0; j < mcmc::num_data; ++j) {
+            fout << i << " " << j << " " << mcmc::Psi[i][j] << "\n";
+        }
+    }
+    fout.close();
 }
 
 void mcmc::run_chain(float3 *ks, double *Bk) {
@@ -386,7 +421,7 @@ void mcmc::run_chain(float3 *ks, double *Bk) {
         bool move = mcmc::trial(ks, Bk);
         ++real_num;
         for (size_t j = 0; j < mcmc::num_params; ++j)
-            fout << mcmc::theta_0[i] << " ";
+            fout << mcmc::theta_0[j] << " ";
         fout << pow(mcmc::theta_0[3]*mcmc::theta_0[4]*mcmc::theta_0[4], 1.0/3.0) << " ";
         fout << mcmc::chisq_0 << "\n";
         if (move) {

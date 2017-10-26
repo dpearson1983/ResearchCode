@@ -31,7 +31,7 @@ class powerspec{
     gsl_interp_accel *acc_bao, *acc_nw; // GSL acceleration workspaces
     
     // Reads the data stored in in_file and initializes specified spline.
-    void init_spline(std::string in_file, gsl_spline *Pk, gsl_interp_accel *acc);
+    void init_spline(std::string in_file, gsl_spline *Pk);
     
     // Reads the data file to determine the particular k values where the model needs to be evaluated. Also
     // the data itself is stored temporarily in P which can then be copied over to the mcmc data member.
@@ -59,7 +59,7 @@ class powerspec{
         size_t size();
 };
 
-void powerspec::init_spline(std::string in_file, gsl_spline *Pk, gsl_interp_accel *acc) {
+void powerspec::init_spline(std::string in_file, gsl_spline *Pk) {
     // Check to make sure the given file name actually exists to avoid consuming all system memory
     if (check_file_exists(in_file)) {
         // Set things up to read in the file and put contents in temporary storage, then do that
@@ -78,7 +78,6 @@ void powerspec::init_spline(std::string in_file, gsl_spline *Pk, gsl_interp_acce
         
         // Use the appropriate GSL functions to initialize the spline and workspace
         Pk = gsl_spline_alloc(gsl_interp_cspline, pin.size());
-        acc = gsl_interp_accel_alloc();
         gsl_spline_init(Pk, kin.data(), pin.data(), pin.size());
     }
 }
@@ -112,23 +111,68 @@ powerspec::powerspec(std::string input_data_file, std::string input_bao_file, st
 
 void powerspec::initialize(std::string input_data_file, std::string input_bao_file, 
                            std::string input_nw_file) {
-    powerspec::init_spline(input_bao_file, powerspec::Pk_bao, powerspec::acc_bao);
-    powerspec::init_spline(input_nw_file, powerspec::Pk_nw, powerspec::acc_nw);
+    if (check_file_exists(input_bao_file)) {
+        // Set things up to read in the file and put contents in temporary storage, then do that
+        std::ifstream fin(input_bao_file);
+        std::vector<double> kin;
+        std::vector<double> pin;
+        while (!fin.eof()) {
+            double kt, pt;
+            fin >> kt >> pt;
+            if (!fin.eof()) {
+                kin.push_back(kt);
+                pin.push_back(pt);
+            }
+        }
+        fin.close();
+        
+        // Use the appropriate GSL functions to initialize the spline and workspace
+        powerspec::Pk_bao = gsl_spline_alloc(gsl_interp_cspline, pin.size());
+        gsl_spline_init(powerspec::Pk_bao, kin.data(), pin.data(), pin.size());
+    }
+    powerspec::acc_bao = gsl_interp_accel_alloc();
+    if (check_file_exists(input_nw_file)) {
+        // Set things up to read in the file and put contents in temporary storage, then do that
+        std::ifstream fin(input_nw_file);
+        std::vector<double> kin;
+        std::vector<double> pin;
+        while (!fin.eof()) {
+            double kt, pt;
+            fin >> kt >> pt;
+            if (!fin.eof()) {
+                kin.push_back(kt);
+                pin.push_back(pt);
+            }
+        }
+        fin.close();
+        
+        // Use the appropriate GSL functions to initialize the spline and workspace
+        powerspec::Pk_nw = gsl_spline_alloc(gsl_interp_cspline, pin.size());
+        gsl_spline_init(powerspec::Pk_nw, kin.data(), pin.data(), pin.size());
+    }
+    powerspec::acc_nw = gsl_interp_accel_alloc();
     powerspec::read_data_file(input_data_file);
 }
 
 void powerspec::calculate(std::vector<double> &pars) {
     for (size_t i = 0; i < powerspec::num_vals; ++i) {
+//         std::cout << "Get k_i..." << std::endl;
         double k_i = powerspec::k[i]; // Convenient shorthand
         // Bispectrum needs a_para and a_perp, so they have to be combined here to calculate the power
         // spectrum. See Anderson et al. for details.
+//         std::cout << "Calculate alpha..." << std::endl;
         double alpha = pow(pars[3]*pars[4]*pars[4], 1.0/3.0);
+//         std::cout << "No-wiggle splines..." << std::endl;
         double P_nw = gsl_spline_eval(powerspec::Pk_nw, k_i, powerspec::acc_nw);
         double P_nwa = gsl_spline_eval(powerspec::Pk_nw, k_i/alpha, powerspec::acc_nw);
+//         std::cout << "BAO spline..." << std::endl;
         double P_bao = gsl_spline_eval(powerspec::Pk_bao, k_i/alpha, powerspec::acc_bao);
+//         std::cout << "Damp..." << std::endl;
         double damp = exp(-0.5*pars[7]*pars[7]*k_i*k_i);
+//         std::cout << "Broadband..." << std::endl;
         double broadband = pars[8]*k_i*k_i + pars[9]*k_i + pars[10] + pars[11]/k_i + pars[12]/(k_i*k_i)
                            + pars[13]/(k_i*k_i*k_i);
+//         std::cout << "Final calculation..." << std::endl;
         powerspec::P[i] = (pars[6]*pars[6]*P_nw + broadband)*(1.0 + (P_bao/P_nwa - 1.0)*damp);
     }
 }

@@ -18,6 +18,8 @@ int main(int argc, char *argv[]) {
     // Initialize the mcmc object
     mcmc combFit(p, d_ks, d_Bk);
     
+    combFit.write_Psi("inverse_covar.dat");
+    
     // Run the MCMC chain
     combFit.run_chain(d_ks, d_Bk);
     

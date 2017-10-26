@@ -22,6 +22,9 @@ mcmc_parameters::mcmc_parameters(char *file) {
     mcmc_parameters::cov_file = p.gets("cov_file");
     mcmc_parameters::pk_data_file = p.gets("pk_data_file");
     mcmc_parameters::bk_data_file = p.gets("bk_data_file");
+    mcmc_parameters::in_bao_file = p.gets("in_bao_file");
+    mcmc_parameters::in_nw_file = p.gets("in_nw_file");
+    mcmc_parameters::in_nonlin_file = p.gets("in_nonlin_file");
     
     // Set up booleans
     mcmc_parameters::new_chain = p.getb("new_chain");

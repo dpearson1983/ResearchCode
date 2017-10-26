@@ -32,7 +32,7 @@ template <typename T> class cspline{
         
         void set_pointer_for_device(std::vector<float4> &spline);
         
-        void set_pointer_for_device(std::vector<double4> &spline);
+//         void set_pointer_for_device(std::vector<double4> &spline);
         
         T evaluate(T x);
         
@@ -138,12 +138,12 @@ template<typename T> void cspline<T>::set_pointer_for_device(std::vector<float4>
     }
 }
 
-template<typename T> void cspline<T>::set_pointer_for_device(std::vector<double4> &spline) {
-    for (int i = 0; i < cspline<T>::N; ++i) {
-        double4 temp = {cspline<T>::t[i], cspline<T>::y[i], cspline<T>::z[i], cspline<T>::h[i]};
-        spline.push_back(temp);
-    }
-}
+// template<typename T> void cspline<T>::set_pointer_for_device(std::vector<double4> &spline) {
+//     for (int i = 0; i < cspline<T>::N; ++i) {
+//         double4 temp = {cspline<T>::t[i], cspline<T>::y[i], cspline<T>::z[i], cspline<T>::h[i]};
+//         spline.push_back(temp);
+//     }
+// }
 
 template<typename T> T cspline<T>::evaluate(T x) {
     if (x < cspline<T>::t[0] || x > cspline<T>::t[cspline<T>::N - 1]) {

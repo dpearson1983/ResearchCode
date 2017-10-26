@@ -2,7 +2,7 @@ CXX = g++
 VXX = nvcc -std=c++11 -arch=sm_50
 CXXFLAGS = -lharppi -lgsl -lgslcblas -lm
 CXXOPTS = -march=native -O3
-VXXFLAGS = --compiler-options "$(CXXFLAGS) $(CXXOPTS)" -O3
+VXXFLAGS = -maxrregcount=64 --compiler-options "$(CXXFLAGS) $(CXXOPTS)" -O3
 
 build: hide_harppi make_spline file_check main.cu
 	$(VXX) $(VXXFLAGS) -o $(HOME)/bin/combOVER main.cu obj/hide_harppi.o obj/make_spline.o obj/file_check.o
