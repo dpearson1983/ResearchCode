@@ -279,10 +279,12 @@ int main(int argc, char *argv[]) {
     gsl_integration_workspace *w_gsl = gsl_integration_workspace_alloc(100000000);
     fin.open(p.gets("ran_file").c_str(), std::ios::in);
     while (!fin.eof()) {
-        double ra, dec, red, temp1;
-        fin >> ra >> dec >> red >> temp1;
+        double ra, dec, red, n, b, rf, cp;
+        fin >> ra >> dec >> red >> n >> b >> rf >> cp;
         if (!fin.eof() && red >= p.getd("red_min") && red < p.getd("red_max")) {
-            galaxy<double> ran(ra, dec, red, 0.0, 0.0, 0.0, gsl_spline_eval(nofz, red, nz_acc), 0.0, temp1);
+            double w_fkp = 1.0/(1.0 + n*p.getd("P_w"));
+            double w = w_fkp*(rf + cp - 1.0);
+            galaxy<double> ran(ra, dec, red, 0.0, 0.0, 0.0, gsl_spline_eval(nofz, red, nz_acc), 0.0, w);
             ran.cartesian(p.getd("Omega_M"), p.getd("Omega_L"), w_gsl);
             ran.bin(nden_ran, L, N, r_min, ranpk_nbw, ranbk_nbw, p.getd("P_w"), 
                     galFlags::INPUT_WEIGHT|galFlags::CIC);
@@ -310,11 +312,13 @@ int main(int argc, char *argv[]) {
         std::cout << "    Reading in and binning galaxies..." << std::endl;
         fin.open(in_file.c_str(), std::ios::in);
         while (!fin.eof()) {
-            double ra, dec, red, temp1, temp2;
-            fin >> ra >> dec >> red >> temp1 >> temp2;
+            double ra, dec, red, mass, n, b, rf, cp;
+            fin >> ra >> dec >> red >> mass >> n >> b >> rf >> cp;
             if (!fin.eof() && red >= p.getd("red_min") && red < p.getd("red_max")) {
+                double w_fkp = 1.0/(1.0 + n*p.getd("P_w"));
+                double w = w_fkp*(rf + cp - 1.0);
                 galaxy<double> gal(ra, dec, red, 0.0, 0.0, 0.0, gsl_spline_eval(nofz, red, nz_acc), 0.0, 
-                                   temp1*temp2);
+                                   w);
                 gal.cartesian(p.getd("Omega_M"), p.getd("Omega_L"), w_gsl);
                 gal.bin(nden_gal, L, N, r_min, galpk_nbw, galbk_nbw, p.getd("P_w"),
                         galFlags::INPUT_WEIGHT|galFlags::CIC);
