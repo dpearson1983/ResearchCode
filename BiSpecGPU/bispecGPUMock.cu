@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
         nden_ran[i] = 0.0;
     
     std::cout << "Reading in randoms from file: " << p.gets("ran_file") << std::endl;
-    gsl_integration_workspace *w_gsl = gsl_integration_workspace_alloc(100000000);
+    gsl_integration_workspace *w_gsl = gsl_integration_workspace_alloc(10000000);
     fin.open(p.gets("ran_file").c_str(), std::ios::in);
     while (!fin.eof()) {
         double ra, dec, red, n, b, rf, cp;
