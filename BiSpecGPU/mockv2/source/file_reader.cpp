@@ -4,14 +4,14 @@
 #include <string>
 #include <cmath>
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_spline.h>
 #include <galaxy.h>
 #include <file_check.h>
 #include <tpods.h>
 #include "../include/file_reader.h"
 
-size_t readPatchy(std::string file, std::vector<double> &nden, double red_min, double red_max, double P_FKP,
-                double Omega_M, double Omega_L, vec3<double> r_min, vec3<double> L, vec3<int> N,
-                vec3<double> &pk_nbw, vec3<double> &bk_nbw, bool randoms) {
+size_t readPatchy(std::string file, desityField &nden, cosmology &cos, vec2<double> red_lim, double P_FKP, 
+                  bool randoms) {
     if (check_file_exists(file)) {
         int num = 0;
         std::ifstream fin(file);
@@ -23,13 +23,11 @@ size_t readPatchy(std::string file, std::vector<double> &nden, double red_min, d
             } else {
                 fin >> ra >> dec >> red >> mass >> n >> b >> rf >> cp;
             }
-            if (!fin.eof() && red >= red_min && red < red_max) {
+            if (!fin.eof() && red >= red_lim.x && red < red_lim.y) {
                 double w_fkp = 1.0/(1.0 + n*P_FKP);
-                double w = w_fkp*(rf + cp - 1.0);
-                galaxy<double> gal(ra, dec, red, 0.0, 0.0, 0.0, n, b, w);
-                gal.cartesian(Omega_M, Omega_L, w_gsl);
-                gal.bin(nden.data(), L, N, r_min, pk_nbw, bk_nbw, P_FKP, 
-                        galFlags::INPUT_WEIGHT|galFlags::CIC);
+                double w = w_fkp;
+                galaxy<double> gal(ra, dec, red, 0.0, n, b, w, rf, cp, P_FKP);
+                nden.bin(gal, cos, w_gsl, "CIC");
                 ++num;
             }
         }
@@ -39,9 +37,8 @@ size_t readPatchy(std::string file, std::vector<double> &nden, double red_min, d
     return num;
 }
 
-size_t readQPM(std::string file, std::vector<double> &nden, double red_min, double red_max, double P_FKP,
-               double Omega_M, double Omega_L, vec3<double> r_min, vec3<double> L, vec3<int> N,
-               vec3<double> &pk_nbw, vec3<double> &bk_nbw, bool randoms) {
+size_t readQPM(std::string file,desityField &nden, cosmology &cos, vec2<double> red_lim, double P_FKP, 
+               bool randoms, gsl_spline *NofZ, gsl_interp_accel *acc) {
     if (check_file_exists(file)) {
         int num = 0;
         std::ifstream fin(file);
@@ -54,10 +51,9 @@ size_t readQPM(std::string file, std::vector<double> &nden, double red_min, doub
                 fin >> ra >> dec >> red >> w_fkp >> w_rfcp;
             }
             if (!fin.eof() && red >= red_min && red < red_max) {
-                galaxy<double> gal(ra, dec, red, 0.0, 0.0, 0.0, n, b, w_fkp*w_rfcp);
-                gal.cartesian(Omega_M, Omega_L, w_gsl);
-                gal.bin(nden.data(), L, N, r_min, pk_nbw, bk_nbw, P_FKP, 
-                        galFlags::INPUT_WEIGHT|galFlags::CIC);
+                double n = gsl_spline_eval(NofZ, red, acc);
+                galaxy<double> gal(ra, dec, red, 0.0, n, 0.0, w_fkp, w_rfcp, 0.0, P_FKP);
+                nden.bin(gal, cos, w_gsl, "CIC");
                 ++num;
             }
         }

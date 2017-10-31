@@ -15,6 +15,10 @@
 #include "include/bispec.h"
 #include "include/add_funcs.h"
 #include "include/file_reader.h"
+#include "include/density_field.h"
+#include "include/cosmology.h"
+#include "include/file_check.h"
+
 
 int main(int argc, char *argv[]) {
     parameters p(argv[1]);
@@ -29,16 +33,18 @@ int main(int argc, char *argv[]) {
     vec2<double> k_lim = {p.getd("k_min"), p.getd("k_max")};
     vec2<double> red_lim = {p.getd("red_min"), p.getd("red_max")};
     float dklim[] = {float(p.getd("k_min")), float(p.getd("k_max"))};
+    cosmology cos(p.getd("H_0"), p.getd("Omega_M"), p.getd("Omega_L"), p.getd("Omega_b"), p.getd("Omega_c"),
+                  p.getd("tau"), p.getd("T_CMB"));
     
     gpuErrchk(cudaMemcpyToSymbol(d_klim, &dklim, 2*sizeof(float)));
     
+    
+    
     std::cout << "Reading in and binning randoms file..." << std::endl;
     size_t num_rans;
-    std::vector<double> nden_ran(N.x*N.y*N.z);
+    densityField nden_ran(L, N, r_min);
     if (p.gets("file_type") == "Patchy" || p.gets("file_type") == "patchy") {
-        num_rans = readPatchy(p.gets("randoms_file"), nden_ran, red_lim.x, red_lim.y, p.getd("P_FKP"),
-                              p.getd("Omega_M"), p.getd("Omega_L"), r_min, L, N, ranpk_nbw, ranbk_nbw,
-                              true);
+        num_rans = readPatchy(p.gets("randoms_file"), nden_ran, cos, red_lim, p.getd("P_FKP"), true);
     } else if(p.gets("file_type") == "QPM") {
         num_rans = readQPM(p.gets("randoms_file"), nden_ran, red_lim.x, red_lim.y, p.getd("P_FKP"),
                            p.getd("Omega_M"), p.getd("Omega_L"), r_min, L, N, ranpk_nbw, ranbk_nbw, true);
