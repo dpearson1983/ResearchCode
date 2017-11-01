@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
     float binWidth = p.getd("binWidth");
     int numBins = ceil((k_lim.y - k_lim.x)/binWidth);
     int totBins = numBins*numBins*numBins;
+    std::cout << "totBins = " << totBins << std::endl;
     int N_tot = N.x*N.y*N.z;
     gsl_spline *NofZ;
     gsl_interp_accel *acc = gsl_interp_accel_alloc();

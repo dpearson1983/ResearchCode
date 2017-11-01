@@ -28,6 +28,7 @@ __device__ double atomicAdd(double* address, double val)
 
 __global__ void calcBk(float4 *dk3d, int4 *k, unsigned int *N_tri, double *Bk) {
     if (blockIdx.x >= blockIdx.y) {
+//         __shared__ double Bk_local[4096];
         int tid_x = threadIdx.x + blockDim.x*blockIdx.x;
         int tid_y = threadIdx.y + blockDim.y*blockIdx.y;
         if (tid_x >= tid_y && tid_x < d_N[0] && tid_y < d_N[0]) {
