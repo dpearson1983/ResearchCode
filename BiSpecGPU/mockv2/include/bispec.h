@@ -28,7 +28,7 @@ __device__ double atomicAdd(double* address, double val)
 
 __global__ void calcBk(float4 *dk3d, int4 *k, unsigned int *N_tri, double *Bk) {
     if (blockIdx.x >= blockIdx.y) {
-//         __shared__ double Bk_local[4096];
+        __shared__ double Bk_local[4096];
         int tid_x = threadIdx.x + blockDim.x*blockIdx.x;
         int tid_y = threadIdx.y + blockDim.y*blockIdx.y;
         if (tid_x >= tid_y && tid_x < d_N[0] && tid_y < d_N[0]) {
@@ -49,8 +49,17 @@ __global__ void calcBk(float4 *dk3d, int4 *k, unsigned int *N_tri, double *Bk) {
                     int ik2 = (dk_2.z - d_klim[0])/d_binWidth[0];
                     int ik3 = (dk_3.z - d_klim[0])/d_binWidth[0];
                     int bin = ik3 + d_numBins[0]*(ik2 + d_numBins[0]*ik1);
-                    atomicAdd(&Bk[bin], val);
+                    atomicAdd(&Bk_local[bin], val);
                     atomicAdd(&N_tri[bin], 1);
+                }
+            }
+        }
+        __syncthreads();
+    
+        if (threadIdx.x == 0 && threadIdx.y == 0) {
+            for (int i = 0; i < 4096; ++i) {
+                if (Bk_local[i] != 0) {
+                    atomicAdd(&Bk[i], Bk_local[i]);
                 }
             }
         }
