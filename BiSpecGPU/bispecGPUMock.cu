@@ -130,7 +130,7 @@ __device__ int getBkBin(float k1, float k2, float k3, float d_binWidth, int d_nu
 //      8. numBins: The number of bispectrum bins for a single k (i.e. k_1)
 //      9. totBins: The total number of bins for the bispectrum, i.e. numBins^3
 //     10.   k_lim: The minimum (x) and maximum (y) k values to be binned
-__global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, double *Bk, int4 N_grid,
+__global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, double *Bk, int4 N_grid,
                        int N, float binWidth, int numBins, int totBins, float2 k_lim) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
@@ -164,12 +164,44 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, do
                     int ik3 = (dk_3.z - k_lim.x)/binWidth;
                     int bin = ik3 + numBins*(ik2 + numBins*ik1);
                     atomicAdd(&Bk[bin], val);
+                }
+            }
+        }
+    }
+}
+
+__global__ void calcNtri(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, int4 N_grid, int N, 
+                         float binWidth, int numBins, int totBins, float2 k_lim) {
+    int tid = threadIdx.x + blockIdx.x*blockDim.x;
+    
+    int xShift = N_grid.x/2;
+    int yShift = N_grid.y/2;
+    int zShift = N_grid.z/2;
+    
+    if (tid < N) {
+        int4 k_1 = k1[tid];
+        float4 dk_1 = dk3d[k_1.w];
+        for (int i = tid; i < N; ++i) {
+            int4 k_2 = k2[i];
+            float4 dk_2 = dk3d[k_2.w];
+            int4 k_3 = {-k_1.x - k_2.x, -k_1.y - k_2.y, -k_1.z - k_2.z, 0};
+            int i3 = k_3.x + xShift;
+            int j3 = k_3.y + yShift;
+            int k3 = k_3.z + zShift;
+            if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
+                k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
+                float4 dk_3 = dk3d[k_3.w];
+                if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
+                    int ik2 = (dk_2.z - k_lim.x)/binWidth;
+                    int ik3 = (dk_3.z - k_lim.x)/binWidth;
+                    int bin = ik3 + numBins*(ik2 + numBins*ik1)
                     atomicAdd(&N_tri[bin], 1);
                 }
             }
         }
     }
 }
+    
 
 // __global__ void calcBkTile(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, float *Bk, int4 N_grid,
 //                        int N, float binWidth, int numBins, int totBins, float2 k_lim) {
@@ -295,6 +327,125 @@ int main(int argc, char *argv[]) {
     
     std::cout << "    Number of randoms: " << num_rans << std::endl;
     
+    int4 N_grid;
+    N_grid.x = 2*k_lim.y/dk.x + 1 - (int(2*k_lim.y/dk.x) % 2);
+    N_grid.y = 2*k_lim.y/dk.y + 1 - (int(2*k_lim.y/dk.y) % 2);
+    N_grid.z = 2*k_lim.y/dk.z + 1 - (int(2*k_lim.y/dk.z) % 2);
+    N_grid.w = N_grid.x*N_grid.y*N_grid.z;
+    std::cout << "Small cube dimensions: (" << N_grid.x << ", " << N_grid.y << ", " << N_grid.z << ")" << std::endl;
+    std::cout << "Total number of elements: " << N_grid.w << std::endl;
+    
+    std::vector<int4> kvec;
+    float4 *dk3d = new float4[N_grid.w];
+    float4 *d_dk3d;
+    cudaMalloc((void **)&d_dk3d, N_grid.w*sizeof(float4));
+    
+    for (int i = 0; i < N_grid.w; ++i) {
+        dk3d[i].x = 0.0;
+        dk3d[i].y = 0.0;
+        dk3d[i].z = 0.0;
+        dk3d[i].w = 0.0;
+    }
+    
+    std::vector<double> kxs(N_grid.x);
+    std::vector<double> kxb(N.x);
+    std::vector<double> kys(N_grid.y); 
+    std::vector<double> kyb(N.y);
+    std::vector<double> kzs(N_grid.z);
+    std::vector<double> kzb(N.z);
+    
+    myfreq(kxs, N_grid.x, L.x);
+    fftfreq(kxb, N.x, L.x);
+    myfreq(kys, N_grid.y, L.y);
+    fftfreq(kyb, N.y, L.y);
+    myfreq(kzs, N_grid.z, L.z);
+    fftfreq(kzb, N.z, L.z);
+    
+    for (int i = 0; i < N_grid.x; ++i) {
+        int i2 = kMatch(kxs[i], kxb, L.x);
+        for (int j = 0; j < N_grid.y; ++j) {
+            int j2 = kMatch(kys[j], kyb, L.y);
+            for (int k = 0; k < N_grid.z; ++k) {
+                float k_mag = sqrt(kxs[i]*kxs[i] + kys[j]*kys[j] + kzs[k]*kzs[k]);
+                int k2 = kMatch(kzs[k], kzb, L.z);
+                int dkindex = k2 + N.z*(j2 + N.y*i2);
+                int index = k + N_grid.z*(j + N_grid.y*i);
+                if (dkindex >= N_tot || dkindex < 0) {
+                    std::cout << "ERROR: index out of range" << std::endl;
+                    std::cout << "   dkindex = " << dkindex << std::endl;
+                    std::cout << "     N_tot = " << N_tot << std::endl;
+                    std::cout << "   (" << i2 << ", " << j2 << ", " << k2 << ")" << std::endl;
+                    std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
+                    std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
+                    return 0;
+                }
+                if (index >= N_grid.w || index < 0) {
+                    std::cout << "ERROR: index out of range" << std::endl;
+                    std::cout << "      index = " << index << std::endl;
+                    std::cout << "   N_grid.w = " << N_grid.w << std::endl;
+                    std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
+                    std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
+                    return 0;
+                }
+                
+                vec3<double> kv = {kxs[i], kys[j], kzs[k]};
+                dk3d[index].x = 0.0;
+                dk3d[index].y = 0.0;
+                dk3d[index].z = k_mag;
+                dk3d[index].w = gridCorCIC(kv, dr);
+                if (k_mag >= k_lim.x && k_mag < k_lim.y) {
+                    int4 ktemp = {i - N_grid.x/2, j - N_grid.y/2, k - N_grid.z/2, index};
+                    kvec.push_back(ktemp);
+                }
+            }
+        }
+    }
+    
+    cudaMemcpy(d_dk3d, dk3d, N_grid.w*sizeof(float4), cudaMemcpyHostToDevice);
+    
+    float grid_space = 0.008;
+    int num_bk_bins = ceil((k_lim.y - k_lim.x)/grid_space);
+    int tot_bk_bins = num_bk_bins*num_bk_bins*num_bk_bins;
+    
+    unsigned int *Ntri = new unsigned int[tot_bk_bins];
+    unsigned int *d_Ntri;
+    cudaMalloc((void **)&d_Ntri, tot_bk_bins*sizeof(unsigned int));
+    
+    int4 *d_k1;
+    cudaMalloc((void **)&d_k1, kvec.size()*sizeof(int4));
+    std::cout << "    cudaMalloc d_k1: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
+    
+    int4 *d_k2;
+    cudaMalloc((void **)&d_k2, kvec.size()*sizeof(int4));
+    std::cout << "    cudaMalloc d_k2: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
+    
+    for (int i = 0; i < tot_bk_bins; ++i) {
+        Ntri[i] = 0;
+    }
+    
+    cudaMemcpy(d_Ntri, Ntri, tot_bk_bins*sizeof(unsigned int), cudaMemcpyHostToDevice);
+    std::cout << "    cudaMemcpy d_Ntri: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
+    
+    cudaMemcpy(d_k1, &kvec[0], kvec.size()*sizeof(int4), cudaMemcpyHostToDevice);
+    std::cout << "    cudaMemcpy d_k1: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
+    cudaMemcpy(d_k2, &kvec[0], kvec.size()*sizeof(int4), cudaMemcpyHostToDevice);
+    std::cout << "    cudaMemcpy d_k2: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
+    
+    int num_gpu_threads = p.geti("num_gpu_threads");
+    int num_blocks = ceil(kvec.size()/p.getd("num_gpu_threads"));
+    
+    cudaEvent_t begin, end;
+    float elapsedTime;
+    cudaEventCreate(&begin);
+    cudaEventRecord(begin, 0);
+    calcNtri<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k1, d_k2, d_Ntri, N_grid, kvec.size(), 
+                                            grid_space, num_bk_bins, tot_bk_bins, d_klim);
+    cudaEventCreate(&end);
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsedTime, begin, end);
+    std::cout << "    Time to calculate number of triangles: " << elapsedTime << " ms" << std::endl;
+    
     for (int mock = p.geti("start_num"); mock < p.geti("num_mocks")+p.geti("start_num"); ++mock) {
         std::string in_file = filename(p.gets("in_base"), p.geti("digits"), mock, p.gets("in_ext"));
         std::string pk_file = filename(p.gets("pk_base"), p.geti("digits"), mock, p.gets("pk_ext"));
@@ -347,37 +498,6 @@ int main(int argc, char *argv[]) {
         Pk.norm(galpk_nbw.z, 0);
         Pk.writeFile(pk_file, 0);
         
-        int4 N_grid;
-        N_grid.x = 2*k_lim.y/dk.x + 1 - (int(2*k_lim.y/dk.x) % 2);
-        N_grid.y = 2*k_lim.y/dk.y + 1 - (int(2*k_lim.y/dk.y) % 2);
-        N_grid.z = 2*k_lim.y/dk.z + 1 - (int(2*k_lim.y/dk.z) % 2);
-        N_grid.w = N_grid.x*N_grid.y*N_grid.z;
-        std::cout << "Small cube dimensions: (" << N_grid.x << ", " << N_grid.y << ", " << N_grid.z << ")" << std::endl;
-        std::cout << "Total number of elements: " << N_grid.w << std::endl;
-        
-        std::vector<int4> kvec;
-        float4 *dk3d = new float4[N_grid.w];
-        
-        for (int i = 0; i < N_grid.w; ++i) {
-            dk3d[i].x = 0.0;
-            dk3d[i].y = 0.0;
-            dk3d[i].z = 0.0;
-            dk3d[i].w = 0.0;
-        }
-        
-        std::vector<double> kxs(N_grid.x);
-        std::vector<double> kxb(N.x);
-        std::vector<double> kys(N_grid.y); 
-        std::vector<double> kyb(N.y);
-        std::vector<double> kzs(N_grid.z);
-        std::vector<double> kzb(N.z);
-        
-        myfreq(kxs, N_grid.x, L.x);
-        fftfreq(kxb, N.x, L.x);
-        myfreq(kys, N_grid.y, L.y);
-        fftfreq(kyb, N.y, L.y);
-        myfreq(kzs, N_grid.z, L.z);
-        fftfreq(kzb, N.z, L.z);
         
         std::cout << "    Filling small cube for bispectrum calculation..." << std::endl;
         for (int i = 0; i < N_grid.x; ++i) {
@@ -410,12 +530,6 @@ int main(int argc, char *argv[]) {
                     vec3<double> kv = {kxs[i], kys[j], kzs[k]};
                     dk3d[index].x = delta[dkindex][0];
                     dk3d[index].y = delta[dkindex][1];
-                    dk3d[index].z = k_mag;
-                    dk3d[index].w = gridCorCIC(kv, dr);
-                    if (k_mag >= k_lim.x && k_mag < k_lim.y) {
-                        int4 ktemp = {i - N_grid.x/2, j - N_grid.y/2, k - N_grid.z/2, index};
-                        kvec.push_back(ktemp);
-                    }
                 }
             }
         }
@@ -425,34 +539,13 @@ int main(int argc, char *argv[]) {
         
         delete[] delta;
         
-        int4 *d_k1;
-        cudaMalloc((void **)&d_k1, num_k_vecs*sizeof(int4));
-        std::cout << "    cudaMalloc d_k1: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        gpu_mem += num_k_vecs*sizeof(int4);
-        
-        int4 *d_k2;
-        cudaMalloc((void **)&d_k2, num_k_vecs*sizeof(int4));
-        std::cout << "    cudaMalloc d_k2: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        gpu_mem += num_k_vecs*sizeof(int4);
-        
-        float4 *d_dk3d;
-        cudaMalloc((void **)&d_dk3d, N_grid.w*sizeof(float4));
-        std::cout << "    cudaMalloc d_dk3d: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        gpu_mem += N_grid.w*sizeof(float4);
-        
-        float grid_space = 0.008;
-        int num_bk_bins = ceil((k_lim.y - k_lim.x)/grid_space);
-        int tot_bk_bins = num_bk_bins*num_bk_bins*num_bk_bins;
-        
         double *Bk = new double[tot_bk_bins];
         double *d_Bk;
         cudaMalloc((void **)&d_Bk, tot_bk_bins*sizeof(double));
         std::cout << "    cudaMalloc d_Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         gpu_mem += tot_bk_bins*sizeof(double);
         
-        unsigned int *Ntri = new unsigned int[tot_bk_bins];
-        unsigned int *d_Ntri;
-        cudaMalloc((void **)&d_Ntri, tot_bk_bins*sizeof(unsigned int));
+        
         std::cout << "    cudaMalloc d_Ntri: "<< cudaGetErrorString(cudaGetLastError()) << std::endl;
         gpu_mem += tot_bk_bins*sizeof(unsigned int);
         
@@ -460,26 +553,17 @@ int main(int argc, char *argv[]) {
         
         for (int i = 0; i < tot_bk_bins; ++i) {
             Bk[i] = 0.0;
-            Ntri[i] = 0;
         }
         
         std::cout << "    Copying data to the GPU..." << std::endl;
         cudaMemcpy(d_Bk, Bk, tot_bk_bins*sizeof(double), cudaMemcpyHostToDevice);
         std::cout << "    cudaMemcpy d_Bk: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        cudaMemcpy(d_Ntri, Ntri, tot_bk_bins*sizeof(unsigned int), cudaMemcpyHostToDevice);
-        std::cout << "    cudaMemcpy d_Ntri: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         cudaMemcpy(d_dk3d, dk3d, N_grid.w*sizeof(float4), cudaMemcpyHostToDevice);
         std::cout << "    cudaMemcpy d_dk3d: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        cudaMemcpy(d_k1, &kvec[0], num_k_vecs*sizeof(int4), cudaMemcpyHostToDevice);
-        std::cout << "    cudaMemcpy d_k1: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        cudaMemcpy(d_k2, &kvec[0], num_k_vecs*sizeof(int4), cudaMemcpyHostToDevice);
-        std::cout << "    cudaMemcpy d_k2: " << cudaGetErrorString(cudaGetLastError()) << std::endl;
         
         int num_gpu_threads = p.geti("num_gpu_threads");
         int num_blocks = ceil(num_k_vecs/p.getd("num_gpu_threads"));
         
-        cudaEvent_t begin, end;
-        float elapsedTime;
         cudaEventCreate(&begin);
         cudaEventRecord(begin, 0);
         calcBk<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k1, d_k2, d_Ntri, d_Bk, N_grid, num_k_vecs, 
@@ -523,17 +607,17 @@ int main(int argc, char *argv[]) {
         fout.close();
         
         delete[] Bk;
-        delete[] Ntri;
-        delete[] dk3d;
-        cudaFree(d_k1);
-        cudaFree(d_k2);
-        cudaFree(d_dk3d);
         cudaFree(d_Bk);
-        cudaFree(d_Ntri);
     }
     
     // Clean up before exiting
+    delete[] dk3d;
     delete[] nden_ran;
+    cudaFree(d_k1);
+    cudaFree(d_k2);
+    cudaFree(d_dk3d);
+    cudaFree(d_Ntri);
+    delete[] Ntri;
     gsl_spline_free(nofz);
     gsl_interp_accel_free(nz_acc);
     gsl_integration_workspace_free(w_gsl);
