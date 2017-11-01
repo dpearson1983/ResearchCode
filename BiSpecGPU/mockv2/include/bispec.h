@@ -31,6 +31,11 @@ __global__ void calcBk(float4 *dk3d, int4 *k, unsigned int *N_tri, double *Bk) {
         __shared__ double Bk_local[4096];
         int tid_x = threadIdx.x + blockDim.x*blockIdx.x;
         int tid_y = threadIdx.y + blockDim.y*blockIdx.y;
+        int tid = threadIdx.x + blockDim.x*threadIdx.y;
+        for (int i = tid*4; i < tid*4 + 4; ++i) {
+            Bk_local[i] = 0;
+        }
+        __syncthreads();
         if (tid_x >= tid_y && tid_x < d_N[0] && tid_y < d_N[0]) {
             float4 dk_1 = dk3d[k[tid_y].w];
             float4 dk_2 = dk3d[k[tid_x].w];
