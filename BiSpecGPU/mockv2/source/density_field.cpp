@@ -1,6 +1,7 @@
 #include <vector>
 #include <cmath>
 #include <gsl/gsl_integration.h>
+#include "../include/cosmology.h"
 #include "../include/galaxy.h"
 #include "../include/tpods.h"
 #include "../include/density_field.h"
@@ -97,15 +98,15 @@ void densityField::bin(galaxy gal, cosmology cos, gsl_integration_workspace *w_g
     vec3<double> pos = gal.cartesian(cos, w_gsl);
     std::vector<size_t> index;
     std::vector<double> weight;
-    if (method = "NGP") {
+    if (method == "NGP") {
         densityField::nearest_grid_point(pos, index, weight);
-    } else if (method = "CIC") {
+    } else if (method == "CIC") {
         densityField::cloud_in_cell(pos, index, weight);
     }
     
-    for (auto iit = index.begin(), wit = weight.begin(); it != index.end() && wit != weight.end(); 
-         ++it, ++wit) {
-        den[*iit] += (*wit)*gal.W(galFlags::INPUT_WEIGHT);
+    size_t N = index.size();
+    for (size_t i = 0; i < N; ++i) {
+        den[index[i]] += weight[i]*gal.W(galFlags::INPUT_WEIGHT);
     }
     
     densityField::pk_nbw.x += gal.W(galFlags::INPUT_WEIGHT);

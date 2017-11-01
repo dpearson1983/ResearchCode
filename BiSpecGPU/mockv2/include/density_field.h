@@ -2,12 +2,13 @@
 #define _DENSITY_FIELD_H_
 
 #include <vector>
+#include <string>
 #include <gsl/gsl_integration.h>
 #include "cosmology.h"
 #include "galaxy.h"
 #include "tpods.h"
 
-class densityFeild{
+class densityField{
     std::vector<double> den;
     vec3<double> L, r_min, pk_nbw, bk_nbw, dr;
     vec3<size_t> N;
@@ -17,11 +18,11 @@ class densityFeild{
     void cloud_in_cell(vec3<double> pos, std::vector<size_t> &index, std::vector<double> &weight);
     
     public:
-        densityFeild();
+        densityField();
         
-        densityFeild(vec3<double> Len, vec3<int> Num, vec3<double> rmin = {0.0, 0.0, 0.0});
+        densityField(vec3<double> Len, vec3<int> Num, vec3<double> rmin);
         
-        void initialize(vec3<double> Len, vec3<int> Num, vec3<double> rmin = {0.0, 0.0, 0.0});
+        void initialize(vec3<double> Len, vec3<int> Num, vec3<double> rmin);
         
         void bin(galaxy gal, cosmology cos, gsl_integration_workspace *w_gsl, std::string method = "CIC");
         

@@ -37,7 +37,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k, unsigned int *N_tri, double *Bk) {
             int i3 = k_3.x + d_Ngrid[0]/2;
             int j3 = k_3.y + d_Ngrid[1]/2;
             int k3 = k_3.z + d_Ngrid[2]/2;
-            if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
+            if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < d_Ngrid[0] && j3 < d_Ngrid[1] && k3 < d_Ngrid[2]) {
                 k_3.w = k3 + d_Ngrid[2]*(j3 + d_Ngrid[1]*i3);
                 float4 dk_3 = dk3d[k_3.w];
                 if (dk_3.z < d_klim[1] && dk_3.z >= d_klim[0]) {

@@ -25,9 +25,9 @@ class galaxy{
                double W = 1.0, double WRF = 1.0, double WCP = 1.0, double PFKP = 20000.0);
         
         void initialize(double RA, double DEC, double RED, double M = 0.0, double N = 0.0, double B = 1.0, 
-                        double W = 1.0, double WRF = 1.0, double WCP = 1.0, , double PFKP = 20000.0);
+                        double W = 1.0, double WRF = 1.0, double WCP = 1.0, double PFKP = 20000.0);
         
-        vec3<double> cartesian(cosmology cos, gsl_integration_workspace *w_gsl);
+        vec3<double> cartesian(cosmology cosmo, gsl_integration_workspace *w_gsl);
         
         vec3<double> equatorial();
         

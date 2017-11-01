@@ -1,3 +1,4 @@
+#include <sstream>
 #include <gsl/gsl_integration.h>
 #include "../include/tpods.h"
 #include "../include/cosmology.h"
@@ -37,14 +38,12 @@ galaxy::galaxy() {
     galaxy::ra = 0.0;
     galaxy::dec = 0.0;
     galaxy::red = 0.0;
-    galaxy::x = 0.0;
-    galaxy::y = 0.0;
-    galaxy::z = 0.0;
 }
 
 galaxy::galaxy(double RA, double DEC, double RED, double M, double N, double B, double W, double WRF, 
                double WCP, double PFKP) {
     galaxy::initialize(RA, DEC, RED, M, N, B, W, WRF, WCP, PFKP);
+}
 
 void galaxy::initialize(double RA, double DEC, double RED, double M, double N, double B, double W, 
                         double WRF, double WCP, double PFKP) {
@@ -60,11 +59,11 @@ void galaxy::initialize(double RA, double DEC, double RED, double M, double N, d
     galaxy::P_FKP = PFKP;
 }
 
-vec3<double> galaxy::cartesian(cosmology cos, gsl_integration_workspace *w_gsl) {
-    double r = rz(galaxy::red, cos.Omega_M(), cos.Omega_L(), w_gsl);
-    vec3<double> cart = {r*cos(galaxy::dec*pi/180.0)*cos(galaxy::ra*pi/180.0),
-                         r*cos(galaxy::dec*pi/180.0)*sin(galaxy::ra*pi/180.0),
-                         r*sin(galaxy::dec*pi/180.0)};
+vec3<double> galaxy::cartesian(cosmology cosmo, gsl_integration_workspace *w_gsl) {
+    double r = rz(galaxy::red, cosmo.Omega_M(), cosmo.Omega_L(), w_gsl);
+    vec3<double> cart = {double(r*cos(galaxy::dec*pi/180.0)*cos(galaxy::ra*pi/180.0)),
+                         double(r*cos(galaxy::dec*pi/180.0)*sin(galaxy::ra*pi/180.0)),
+                         double(r*sin(galaxy::dec*pi/180.0))};
     return cart;
 }
 
@@ -87,4 +86,8 @@ double galaxy::W(int flags) {
     } else {
         return galaxy::w;
     }
+}
+
+double galaxy::N() {
+    return galaxy::n;
 }
