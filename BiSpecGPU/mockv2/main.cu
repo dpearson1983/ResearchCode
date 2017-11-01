@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     gpuErrchk(cudaMemcpyToSymbol(d_binWidth, &binWidth, sizeof(float)));
     gpuErrchk(cudaMemcpyToSymbol(d_numBins, &numBins, sizeof(float)));
     
-    if (p.gets("file_type") == "QPM") {
+    if (p.gets("fileType") == "QPM") {
         if (check_file_exists(p.gets("nz_file"))) {
             std::ifstream fin(p.gets("nz_file").c_str());
             std::vector<double> zin;
@@ -106,24 +106,24 @@ int main(int argc, char *argv[]) {
     std::cout << "Reading in and binning randoms file..." << std::endl;
     size_t num_rans;
     densityField nden_ran(L, N, r_min);
-    if (p.gets("file_type") == "Patchy" || p.gets("file_type") == "patchy") {
-        num_rans = readPatchy(p.gets("randoms_file"), nden_ran, cosmo, red_lim, p.getd("P_FKP"), true);
-    } else if(p.gets("file_type") == "QPM") {
-        num_rans = readQPM(p.gets("randoms_file"), nden_ran, cosmo, red_lim, p.getd("P_FKP"), true, NofZ,
+    if (p.gets("fileType") == "Patchy" || p.gets("fileType") == "patchy") {
+        num_rans = readPatchy(p.gets("ran_file"), nden_ran, cosmo, red_lim, p.getd("P_FKP"), true);
+    } else if(p.gets("fileType") == "QPM") {
+        num_rans = readQPM(p.gets("ran_file"), nden_ran, cosmo, red_lim, p.getd("P_FKP"), true, NofZ,
                            acc);
     } else {
         std::stringstream message;
-        message << "Invalid file_type" << std::endl;
+        message << "Invalid fileType" << std::endl;
         throw std::runtime_error(message.str());
     }
     
     fftw_complex *delta = new fftw_complex[N_tot];
         
     fftw_init_threads();
-    fftw_import_wisdom_from_filename(p.gets("FFTW_Wisdom_file").c_str());
+    fftw_import_wisdom_from_filename(p.gets("wisdom_file").c_str());
     fftw_plan_with_nthreads(omp_get_max_threads());
     fftw_plan dr2dk = fftw_plan_dft_3d(N.x, N.y, N.z, delta, delta, FFTW_FORWARD, FFTW_MEASURE);
-    fftw_export_wisdom_to_filename(p.gets("FFTW_Wisdom_file").c_str());
+    fftw_export_wisdom_to_filename(p.gets("wisdom_file").c_str());
     
     for (int mock = p.geti("start_num"); mock < p.geti("num_mocks") + p.geti("start_num"); ++mock) {
         std::string in_file = filename(p.gets("in_base"), p.geti("digits"), mock, p.gets("in_ext"));
@@ -136,9 +136,9 @@ int main(int argc, char *argv[]) {
         densityField nden_gal(L, N, r_min);
         
         std::cout << "    Reading in and binning galaxies..." << std::endl;
-        if (p.gets("file_type") == "Patchy" || p.gets("file_type") == "patchy") {
+        if (p.gets("fileType") == "Patchy" || p.gets("fileType") == "patchy") {
             num_gals = readPatchy(in_file, nden_gal, cosmo, red_lim, p.getd("P_FKP"), false);
-        } else if (p.gets("file_type") == "QPM") {
+        } else if (p.gets("fileType") == "QPM") {
             num_gals = readQPM(in_file, nden_gal, cosmo, red_lim, p.getd("P_FKP"), false, NofZ, acc);
         }
         
@@ -255,6 +255,7 @@ int main(int argc, char *argv[]) {
         dim3 num_blocks(ceil(num_k_vecs/p.getd("num_gpu_threads")),
                         ceil(num_k_vecs/p.getd("num_gpu_threads")));
         
+        std::cout << "    Calculating bispectrum..." << std::endl;
         cudaEvent_t begin, end;
         float elapsedTime;
         cudaEventCreate(&begin);
@@ -268,11 +269,11 @@ int main(int argc, char *argv[]) {
         cudaEventElapsedTime(&elapsedTime, begin, end);
         std::cout << "    Time to calculate bispectrum: " << elapsedTime << " ms" << std::endl;
         
-        num_blocks = ceil(totBins/1024.0);
+        int numBlocks = ceil(totBins/1024.0);
         
         cudaEventCreate(&begin);
         cudaEventRecord(begin, 0);
-        normBk<<<num_blocks, num_gpu_threads>>>(d_Ntri, d_Bk, float(nden_gal.nb3w3()), totBins);
+        normBk<<<numBlocks, 1024>>>(d_Ntri, d_Bk, float(nden_gal.nb3w3()), totBins);
         cudaEventCreate(&end);
         cudaEventRecord(end, 0);
         cudaEventSynchronize(end);
