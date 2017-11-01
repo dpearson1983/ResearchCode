@@ -181,6 +181,7 @@ __global__ void calcNtri(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, 
     if (tid < N) {
         int4 k_1 = k1[tid];
         float4 dk_1 = dk3d[k_1.w];
+        int ik1 = (dk_1.z - k_lim.x)/binWidth;
         for (int i = tid; i < N; ++i) {
             int4 k_2 = k2[i];
             float4 dk_2 = dk3d[k_2.w];
@@ -194,7 +195,7 @@ __global__ void calcNtri(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, 
                 if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
                     int ik2 = (dk_2.z - k_lim.x)/binWidth;
                     int ik3 = (dk_3.z - k_lim.x)/binWidth;
-                    int bin = ik3 + numBins*(ik2 + numBins*ik1)
+                    int bin = ik3 + numBins*(ik2 + numBins*ik1);
                     atomicAdd(&N_tri[bin], 1);
                 }
             }
@@ -566,7 +567,7 @@ int main(int argc, char *argv[]) {
         
         cudaEventCreate(&begin);
         cudaEventRecord(begin, 0);
-        calcBk<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k1, d_k2, d_Ntri, d_Bk, N_grid, num_k_vecs, 
+        calcBk<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k1, d_k2, d_Bk, N_grid, num_k_vecs, 
                                                 grid_space, num_bk_bins, tot_bk_bins, d_klim);
         cudaEventCreate(&end);
         cudaEventRecord(end, 0);
