@@ -175,9 +175,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, double *Bk, int4 N_grid
         __syncthreads();
         
         for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i) {
-            if (Bk_local[i] > 0) {
                 atomicAdd(&Bk[i], Bk_local[i]);
-            }
         }
     }
 }
