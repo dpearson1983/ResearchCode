@@ -138,6 +138,11 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, double *Bk, int4 N_grid
     int yShift = N_grid.y/2;
     int zShift = N_grid.z/2;
     
+    __shared__ double Bk_local[4096];
+    for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i)
+        Bk_local[i] = 0;
+    __syncthreads();
+    
     if (tid < N) {
         int4 k_1 = k1[tid];
         k_1.x *= -1;
@@ -163,8 +168,15 @@ __global__ void calcBk(float4 *dk3d, int4 *k1, int4 *k2, double *Bk, int4 N_grid
                     int ik2 = (dk_2.z - k_lim.x)/binWidth;
                     int ik3 = (dk_3.z - k_lim.x)/binWidth;
                     int bin = ik3 + numBins*(ik2 + numBins*ik1);
-                    atomicAdd(&Bk[bin], val);
+                    atomicAdd(&Bk_local[bin], val);
                 }
+            }
+        }
+        __syncthreads();
+        
+        for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i) {
+            if (Bk_local[i] > 0) {
+                atomicAdd(&Bk[i], Bk_local[i]);
             }
         }
     }
