@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     gsl_spline *NofZ;
     gsl_interp_accel *acc = gsl_interp_accel_alloc();
     
-    gpuErrchk(cudaMemcpyToSymbol(d_klim, &dklim, 2*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_klim, &dklim[0], 2*sizeof(float)));
     gpuErrchk(cudaMemcpyToSymbol(d_binWidth, &binWidth, sizeof(float)));
     gpuErrchk(cudaMemcpyToSymbol(d_numBins, &numBins, sizeof(float)));
     
@@ -298,14 +298,6 @@ int main(int argc, char *argv[]) {
             }
         }
         std::cout << "    Total number of wave vectors in range: " << kvec.size() << std::endl;
-        int num_k_vecs = kvec.size();
-        gpuErrchk(cudaMemcpyToSymbol(d_N, &num_k_vecs, sizeof(int)));
-        
-        int4 *d_k;
-        gpuErrchk(cudaMalloc((void **)&d_k, num_k_vecs*sizeof(int4)));
-        
-        float4 *d_dk3d;
-        gpuErrchk(cudaMalloc((void **)&d_dk3d, N_grid[3]*sizeof(float4)));
                
         double *Bk = new double[totBins];
         double *d_Bk;
