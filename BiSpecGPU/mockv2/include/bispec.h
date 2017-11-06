@@ -5,10 +5,10 @@
 #include <vector_types.h>
 
 __constant__ int d_Ngrid[4];
-__constant__ int d_N[1];
-__constant__ float d_binWidth[1];
-__constant__ int d_numBins[1];
-__constant__ float d_klim[2];
+__constant__ int d_N;
+__constant__ float d_binWidth;
+__constant__ int d_numBins;
+__constant__ float2 d_klim;
 
 #if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ > 600
 #else
@@ -38,11 +38,11 @@ __global__ void calcBk(float4 *dk3d, int4 *k, double *Bk) {
         Bk_local[i] = 0;
     __syncthreads();
     
-    if (tid < d_N[0]) {
+    if (tid < d_N) {
         int4 k_1 = k[tid];
         float4 dk_1 = dk3d[k_1.w];
-        int ik1 = (dk_1.z - d_klim[0])/d_binWidth[0];
-        for (int i = tid; i < d_N[0]; ++i) {
+        int ik1 = (dk_1.z - d_klim.x)/d_binWidth;
+        for (int i = tid; i < d_N; ++i) {
             int4 k_2 = k[i];
             float4 dk_2 = dk3d[k_2.w];
             int4 k_3 = {-k_1.x - k_2.x, -k_1.y - k_2.y, -k_1.z - k_2.z, 0};
@@ -53,13 +53,13 @@ __global__ void calcBk(float4 *dk3d, int4 *k, double *Bk) {
             if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < d_Ngrid[0] && j3 < d_Ngrid[1] && k3 < d_Ngrid[2]) {
                 k_3.w = k3 + d_Ngrid[2]*(j3 + d_Ngrid[1]*i3);
                 float4 dk_3 = dk3d[k_3.w];
-                if (dk_3.z < d_klim[1] && dk_3.z >= d_klim[0]) {
+                if (dk_3.z < d_klim.y && dk_3.z >= d_klim.x) {
                     float grid_cor = dk_1.w*dk_2.w*dk_3.w;
                     double val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - 
                                   dk_1.y*dk_2.y*dk_3.x)*grid_cor;
-                    int ik2 = (dk_2.z - d_klim[0])/d_binWidth[0];
-                    int ik3 = (dk_3.z - d_klim[0])/d_binWidth[0];
-                    int bin = ik3 + d_numBins[0]*(ik2 + d_numBins[0]*ik1);
+                    int ik2 = (dk_2.z - d_klim.x)/d_binWidth;
+                    int ik3 = (dk_3.z - d_klim.x)/d_binWidth;
+                    int bin = ik3 + d_numBins*(ik2 + d_numBins*ik1);
                     atomicAdd(&Bk_local[bin], val);
                 }
             }
@@ -84,11 +84,11 @@ __global__ void calcNtri(float4 *dk3d, int4 *k, unsigned int *N_tri) {
         Ntri_local[i] = 0;
     __syncthreads();
     
-    if (tid < d_N[0]) {
+    if (tid < d_N) {
         int4 k_1 = k[tid];
         float4 dk_1 = dk3d[k_1.w];
-        int ik1 = (dk_1.z - d_klim[0])/d_binWidth[0];
-        for (int i = tid; i < d_N[0]; ++i) {
+        int ik1 = (dk_1.z - d_klim.x)/d_binWidth;
+        for (int i = tid; i < d_N; ++i) {
             int4 k_2 = k[i];
             float4 dk_2 = dk3d[k_2.w];
             int4 k_3 = {-k_1.x - k_2.x, -k_1.y - k_2.y, -k_1.z - k_2.z, 0};
@@ -98,10 +98,10 @@ __global__ void calcNtri(float4 *dk3d, int4 *k, unsigned int *N_tri) {
             if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < d_Ngrid[0] && j3 < d_Ngrid[1] && k3 < d_Ngrid[2]) {
                 k_3.w = k3 + d_Ngrid[2]*(j3 + d_Ngrid[1]*i3);
                 float4 dk_3 = dk3d[k_3.w];
-                if (dk_3.z < d_klim[1] && dk_3.z >= d_klim[0]) {
-                    int ik2 = (dk_2.z - d_klim[0])/d_binWidth[0];
-                    int ik3 = (dk_3.z - d_klim[0])/d_binWidth[0];
-                    int bin = ik3 + d_numBins[0]*(ik2 + d_numBins[0]*ik1);
+                if (dk_3.z < d_klim.y && dk_3.z >= d_klim.x) {
+                    int ik2 = (dk_2.z - d_klim.x)/d_binWidth;
+                    int ik3 = (dk_3.z - d_klim.x)/d_binWidth;
+                    int bin = ik3 + d_numBins*(ik2 + d_numBins*ik1);
                     atomicAdd(&Ntri_local[bin], 1);
                 }
             }

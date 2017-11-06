@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     vec3<double> dr = {L.x/double(N.x), L.y/double(N.y), L.z/double(N.z)};
     vec2<double> k_lim = {p.getd("k_min"), p.getd("k_max")};
     vec2<double> red_lim = {p.getd("red_min"), p.getd("red_max")};
-    float dklim[] = {float(p.getd("k_min")), float(p.getd("k_max"))};
+    float2 dklim = {float(p.getd("k_min")), float(p.getd("k_max"))};
     cosmology cosmo(p.getd("H_0"), p.getd("Omega_M"), p.getd("Omega_L"), p.getd("Omega_b"), p.getd("Omega_c"),
                   p.getd("tau"), p.getd("T_CMB"));
     float binWidth = p.getd("binWidth");
@@ -80,9 +80,9 @@ int main(int argc, char *argv[]) {
     gsl_spline *NofZ;
     gsl_interp_accel *acc = gsl_interp_accel_alloc();
     
-    gpuErrchk(cudaMemcpyToSymbol(d_klim, &dklim[0], 2*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_klim, &dklim, sizeof(float2)));
     gpuErrchk(cudaMemcpyToSymbol(d_binWidth, &binWidth, sizeof(float)));
-    gpuErrchk(cudaMemcpyToSymbol(d_numBins, &numBins, sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_numBins, &numBins, sizeof(int)));
     
     if (p.gets("fileType") == "QPM") {
         if (check_file_exists(p.gets("nz_file"))) {
