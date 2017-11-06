@@ -104,6 +104,85 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    int N_grid[4];
+        N_grid[0] = 2*k_lim.y/dk.x + 1 - (int(2*k_lim.y/dk.x) % 2);
+        N_grid[1] = 2*k_lim.y/dk.y + 1 - (int(2*k_lim.y/dk.y) % 2);
+        N_grid[2] = 2*k_lim.y/dk.z + 1 - (int(2*k_lim.y/dk.z) % 2);
+        N_grid[3] = N_grid[0]*N_grid[1]*N_grid[2];
+        std::cout << "    Small cube dimension: (" << N_grid[0] << ", " << N_grid[1] << ", " << N_grid[2];
+        std::cout << ")" << std::endl;
+        
+        gpuErrchk(cudaMemcpyToSymbol(d_Ngrid, &N_grid[0], 4*sizeof(int)));
+        
+        std::vector<int4> kvec;
+        float4 *dk3d = new float4[N_grid[3]];
+        
+        for (int i = 0; i < N_grid[3]; ++i) {
+            dk3d[i].x = 0.0;
+            dk3d[i].y = 0.0;
+            dk3d[i].z = 0.0;
+            dk3d[i].w = 0.0;
+        }
+        
+        std::vector<double> kxs = myfreq(N_grid[0], L.x);
+        std::vector<double> kxb = fftfreq(N.x, L.x);
+        std::vector<double> kys = myfreq(N_grid[1], L.y);
+        std::vector<double> kyb = fftfreq(N.y, L.y);
+        std::vector<double> kzs = myfreq(N_grid[2], L.z);
+        std::vector<double> kzb = fftfreq(N.z, L.z);
+        
+        std::cout << "    Filling small cube for bispectrum calculation..." << std::endl;
+        for (int i = 0; i < N_grid[0]; ++i) {
+            int i2 = kMatch(kxs[i], kxb, L.x);
+            for (int j = 0; j < N_grid[1]; ++j) {
+                int j2 = kMatch(kys[j], kyb, L.y);
+                for (int k = 0; k < N_grid[2]; ++k) {
+                    float k_mag = sqrt(kxs[i]*kxs[i] + kys[j]*kys[j] + kzs[k]*kzs[k]);
+                    int k2 = kMatch(kzs[k], kzb, L.z);
+                    int dkindex = k2 + N.z*(j2 + N.y*i2);
+                    int index = k + N_grid[2]*(j + N_grid[1]*i);
+                    if (dkindex >= N_tot || dkindex < 0) {
+                        std::cout << "ERROR: index out of range" << std::endl;
+                        std::cout << "   dkindex = " << dkindex << std::endl;
+                        std::cout << "     N_tot = " << N_tot << std::endl;
+                        std::cout << "   (" << i2 << ", " << j2 << ", " << k2 << ")" << std::endl;
+                        std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
+                        std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
+                        return 0;
+                    }
+                    if (index >= N_grid[3] || index < 0) {
+                        std::cout << "ERROR: index out of range" << std::endl;
+                        std::cout << "      index = " << index << std::endl;
+                        std::cout << "   N_grid.w = " << N_grid[3] << std::endl;
+                        std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
+                        std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
+                        return 0;
+                    }
+                    
+                    vec3<double> kv = {kxs[i], kys[j], kzs[k]};
+                    dk3d[index].x = delta[dkindex][0];
+                    dk3d[index].y = delta[dkindex][1];
+                    dk3d[index].z = k_mag;
+                    dk3d[index].w = gridCorCIC(kv, dr);
+                    if (k_mag >= k_lim.x && k_mag < k_lim.y) {
+                        int4 ktemp = {i - N_grid[0]/2, j - N_grid[1]/2, k - N_grid[2]/2, index};
+                        kvec.push_back(ktemp);
+                    }
+                }
+            }
+        }
+        std::cout << "    Total number of wave vectors in range: " << kvec.size() << std::endl;
+        int num_k_vecs = kvec.size();
+        gpuErrchk(cudaMemcpyToSymbol(d_N, &num_k_vecs, sizeof(int)));
+        
+        int4 *d_k;
+        gpuErrchk(cudaMalloc((void **)&d_k, num_k_vecs*sizeof(int4)));
+        
+        float4 *d_dk3d;
+        gpuErrchk(cudaMalloc((void **)&d_dk3d, N_grid[3]*sizeof(float4)));
+
+
+    
     std::cout << "Reading in and binning randoms file..." << std::endl;
     size_t num_rans;
     densityField nden_ran(L, N, r_min);
