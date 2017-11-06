@@ -188,6 +188,11 @@ __global__ void calcNtri(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, 
     int yShift = N_grid.y/2;
     int zShift = N_grid.z/2;
     
+    __shared__ unsigned int Ntri_local[4096];
+    for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i)
+        Ntri_local[i] = 0;
+    __syncthreads();
+    
     if (tid < N) {
         int4 k_1 = k1[tid];
         float4 dk_1 = dk3d[k_1.w];
@@ -206,9 +211,14 @@ __global__ void calcNtri(float4 *dk3d, int4 *k1, int4 *k2, unsigned int *N_tri, 
                     int ik2 = (dk_2.z - k_lim.x)/binWidth;
                     int ik3 = (dk_3.z - k_lim.x)/binWidth;
                     int bin = ik3 + numBins*(ik2 + numBins*ik1);
-                    atomicAdd(&N_tri[bin], 1);
+                    atomicAdd(&Ntri_local[bin], 1);
                 }
             }
+        }
+        __syncthreads();
+
+        for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i) {
+            atomicAdd(&N_tri[i], Ntri_local[i]);
         }
     }
 }
