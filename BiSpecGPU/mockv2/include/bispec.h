@@ -6,8 +6,8 @@
 
 __constant__ int d_Ngrid[4];
 __constant__ int d_N[1];
-__constant__ float d_d_binWidth[0][1];
-__constant__ int d_d_numBins[0][1];
+__constant__ float d_binWidth[1];
+__constant__ int d_numBins[1];
 __constant__ float d_klim[2];
 
 #if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ > 600
@@ -59,7 +59,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k, double *Bk) {
                                   dk_1.y*dk_2.y*dk_3.x)*grid_cor;
                     int ik2 = (dk_2.z - d_klim[0])/d_binWidth[0];
                     int ik3 = (dk_3.z - d_klim[0])/d_binWidth[0];
-                    int bin = ik3 + d_d_numBins[0][0]*(ik2 + d_d_numBins[0][0]*ik1);
+                    int bin = ik3 + d_numBins[0]*(ik2 + d_numBins[0]*ik1);
                     atomicAdd(&Bk_local[bin], val);
                 }
             }
@@ -72,7 +72,7 @@ __global__ void calcBk(float4 *dk3d, int4 *k, double *Bk) {
     }
 }
 
-__global__ void calcNtri(float4 *dk3d, int4 *k, int4 *k2, unsigned int *N_tri) {
+__global__ void calcNtri(float4 *dk3d, int4 *k, unsigned int *N_tri) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     
     int xShift = d_Ngrid[0]/2;
@@ -85,11 +85,11 @@ __global__ void calcNtri(float4 *dk3d, int4 *k, int4 *k2, unsigned int *N_tri) {
     __syncthreads();
     
     if (tid < d_N[0]) {
-        int4 k_1 = k1[tid];
+        int4 k_1 = k[tid];
         float4 dk_1 = dk3d[k_1.w];
         int ik1 = (dk_1.z - d_klim[0])/d_binWidth[0];
         for (int i = tid; i < d_N[0]; ++i) {
-            int4 k_2 = k2[i];
+            int4 k_2 = k[i];
             float4 dk_2 = dk3d[k_2.w];
             int4 k_3 = {-k_1.x - k_2.x, -k_1.y - k_2.y, -k_1.z - k_2.z, 0};
             int i3 = k_3.x + xShift;

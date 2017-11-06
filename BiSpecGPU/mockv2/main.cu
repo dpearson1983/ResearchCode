@@ -104,85 +104,114 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    std::cout << "Preparing to calculate the number of triangles..." << std::endl;
     int N_grid[4];
-        N_grid[0] = 2*k_lim.y/dk.x + 1 - (int(2*k_lim.y/dk.x) % 2);
-        N_grid[1] = 2*k_lim.y/dk.y + 1 - (int(2*k_lim.y/dk.y) % 2);
-        N_grid[2] = 2*k_lim.y/dk.z + 1 - (int(2*k_lim.y/dk.z) % 2);
-        N_grid[3] = N_grid[0]*N_grid[1]*N_grid[2];
-        std::cout << "    Small cube dimension: (" << N_grid[0] << ", " << N_grid[1] << ", " << N_grid[2];
-        std::cout << ")" << std::endl;
+    N_grid[0] = 2*k_lim.y/dk.x + 1 - (int(2*k_lim.y/dk.x) % 2);
+    N_grid[1] = 2*k_lim.y/dk.y + 1 - (int(2*k_lim.y/dk.y) % 2);
+    N_grid[2] = 2*k_lim.y/dk.z + 1 - (int(2*k_lim.y/dk.z) % 2);
+    N_grid[3] = N_grid[0]*N_grid[1]*N_grid[2];
+    std::cout << "    Small cube dimension: (" << N_grid[0] << ", " << N_grid[1] << ", " << N_grid[2];
+    std::cout << ")" << std::endl;
         
-        gpuErrchk(cudaMemcpyToSymbol(d_Ngrid, &N_grid[0], 4*sizeof(int)));
+    gpuErrchk(cudaMemcpyToSymbol(d_Ngrid, &N_grid[0], 4*sizeof(int)));
         
-        std::vector<int4> kvec;
-        float4 *dk3d = new float4[N_grid[3]];
+    std::vector<int4> kvec;
+    float4 *dk3d = new float4[N_grid[3]];
         
-        for (int i = 0; i < N_grid[3]; ++i) {
-            dk3d[i].x = 0.0;
-            dk3d[i].y = 0.0;
-            dk3d[i].z = 0.0;
-            dk3d[i].w = 0.0;
-        }
+    for (int i = 0; i < N_grid[3]; ++i) {
+        dk3d[i].x = 0.0;
+        dk3d[i].y = 0.0;
+        dk3d[i].z = 0.0;
+        dk3d[i].w = 0.0;
+    }
         
-        std::vector<double> kxs = myfreq(N_grid[0], L.x);
-        std::vector<double> kxb = fftfreq(N.x, L.x);
-        std::vector<double> kys = myfreq(N_grid[1], L.y);
-        std::vector<double> kyb = fftfreq(N.y, L.y);
-        std::vector<double> kzs = myfreq(N_grid[2], L.z);
-        std::vector<double> kzb = fftfreq(N.z, L.z);
+    std::vector<double> kxs = myfreq(N_grid[0], L.x);
+    std::vector<double> kxb = fftfreq(N.x, L.x);
+    std::vector<double> kys = myfreq(N_grid[1], L.y);
+    std::vector<double> kyb = fftfreq(N.y, L.y);
+    std::vector<double> kzs = myfreq(N_grid[2], L.z);
+    std::vector<double> kzb = fftfreq(N.z, L.z);
         
-        std::cout << "    Filling small cube for bispectrum calculation..." << std::endl;
-        for (int i = 0; i < N_grid[0]; ++i) {
-            int i2 = kMatch(kxs[i], kxb, L.x);
-            for (int j = 0; j < N_grid[1]; ++j) {
-                int j2 = kMatch(kys[j], kyb, L.y);
-                for (int k = 0; k < N_grid[2]; ++k) {
-                    float k_mag = sqrt(kxs[i]*kxs[i] + kys[j]*kys[j] + kzs[k]*kzs[k]);
-                    int k2 = kMatch(kzs[k], kzb, L.z);
-                    int dkindex = k2 + N.z*(j2 + N.y*i2);
-                    int index = k + N_grid[2]*(j + N_grid[1]*i);
-                    if (dkindex >= N_tot || dkindex < 0) {
-                        std::cout << "ERROR: index out of range" << std::endl;
-                        std::cout << "   dkindex = " << dkindex << std::endl;
-                        std::cout << "     N_tot = " << N_tot << std::endl;
-                        std::cout << "   (" << i2 << ", " << j2 << ", " << k2 << ")" << std::endl;
-                        std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
-                        std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
-                        return 0;
-                    }
-                    if (index >= N_grid[3] || index < 0) {
-                        std::cout << "ERROR: index out of range" << std::endl;
-                        std::cout << "      index = " << index << std::endl;
-                        std::cout << "   N_grid.w = " << N_grid[3] << std::endl;
-                        std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
-                        std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
-                        return 0;
-                    }
+    std::cout << "    Filling small cube for triangles calculation..." << std::endl;
+    for (int i = 0; i < N_grid[0]; ++i) {
+        int i2 = kMatch(kxs[i], kxb, L.x);
+        for (int j = 0; j < N_grid[1]; ++j) {
+            int j2 = kMatch(kys[j], kyb, L.y);
+            for (int k = 0; k < N_grid[2]; ++k) {
+                float k_mag = sqrt(kxs[i]*kxs[i] + kys[j]*kys[j] + kzs[k]*kzs[k]);
+                int k2 = kMatch(kzs[k], kzb, L.z);
+                int dkindex = k2 + N.z*(j2 + N.y*i2);
+                int index = k + N_grid[2]*(j + N_grid[1]*i);
+                if (dkindex >= N_tot || dkindex < 0) {
+                    std::cout << "ERROR: index out of range" << std::endl;
+                    std::cout << "   dkindex = " << dkindex << std::endl;
+                    std::cout << "     N_tot = " << N_tot << std::endl;
+                    std::cout << "   (" << i2 << ", " << j2 << ", " << k2 << ")" << std::endl;
+                    std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
+                    std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
+                    return 0;
+                }
+                if (index >= N_grid[3] || index < 0) {
+                    std::cout << "ERROR: index out of range" << std::endl;
+                    std::cout << "      index = " << index << std::endl;
+                    std::cout << "   N_grid.w = " << N_grid[3] << std::endl;
+                    std::cout << "   (" << i << ", " << j << ", " << k << ")" << std::endl;
+                    std::cout << "   (" << kxs[i] << ", " << kys[j] << ", " << kzs[k] << ")" << std::endl;
+                    return 0;
+                }
                     
-                    vec3<double> kv = {kxs[i], kys[j], kzs[k]};
-                    dk3d[index].x = delta[dkindex][0];
-                    dk3d[index].y = delta[dkindex][1];
-                    dk3d[index].z = k_mag;
-                    dk3d[index].w = gridCorCIC(kv, dr);
-                    if (k_mag >= k_lim.x && k_mag < k_lim.y) {
-                        int4 ktemp = {i - N_grid[0]/2, j - N_grid[1]/2, k - N_grid[2]/2, index};
-                        kvec.push_back(ktemp);
-                    }
+                vec3<double> kv = {kxs[i], kys[j], kzs[k]};
+                dk3d[index].x = 0.0;
+                dk3d[index].y = 0.0;
+                dk3d[index].z = k_mag;
+                dk3d[index].w = gridCorCIC(kv, dr);
+                if (k_mag >= k_lim.x && k_mag < k_lim.y) {
+                    int4 ktemp = {i - N_grid[0]/2, j - N_grid[1]/2, k - N_grid[2]/2, index};
+                    kvec.push_back(ktemp);
                 }
             }
         }
-        std::cout << "    Total number of wave vectors in range: " << kvec.size() << std::endl;
-        int num_k_vecs = kvec.size();
-        gpuErrchk(cudaMemcpyToSymbol(d_N, &num_k_vecs, sizeof(int)));
+    }
+    std::cout << "    Total number of wave vectors in range: " << kvec.size() << std::endl;
+    int num_k_vecs = kvec.size();
+    gpuErrchk(cudaMemcpyToSymbol(d_N, &num_k_vecs, sizeof(int)));
         
-        int4 *d_k;
-        gpuErrchk(cudaMalloc((void **)&d_k, num_k_vecs*sizeof(int4)));
+    int4 *d_k;
+    gpuErrchk(cudaMalloc((void **)&d_k, num_k_vecs*sizeof(int4)));
         
-        float4 *d_dk3d;
-        gpuErrchk(cudaMalloc((void **)&d_dk3d, N_grid[3]*sizeof(float4)));
-
-
+    float4 *d_dk3d;
+    gpuErrchk(cudaMalloc((void **)&d_dk3d, N_grid[3]*sizeof(float4)));
     
+    unsigned int *Ntri = new unsigned int[totBins];
+    unsigned int *d_Ntri;
+    gpuErrchk(cudaMalloc((void **)&d_Ntri, totBins*sizeof(unsigned int)));
+
+    for (size_t i = 0; i < totBins; ++i) {
+        Ntri[i] = 0;
+    }
+
+    dim3 num_gpu_threads(p.geti("num_gpu_threads"), p.geti("num_gpu_threads"));
+    dim3 num_blocks(ceil(num_k_vecs/p.getd("num_gpu_threads")),
+                    ceil(num_k_vecs/p.getd("num_gpu_threads")));
+
+    gpuErrchk(cudaMemcpy(d_Ntri, Ntri, totBins*sizeof(unsigned int), cudaMemcpyHostToDevice));
+
+    std::cout << "Calculating the number of triangles..." << std::endl;
+    cudaEvent_t begin, end;
+    float elapsedTime;
+    cudaEventCreate(&begin);
+    cudaEventRecord(begin, 0);
+    calcNtri<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k, d_Ntri);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    cudaEventCreate(&end);
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsedTime, begin, end);
+    std::cout << "    Time to calculate number of triangles: " << elapsedTime << " ms" << std::endl;
+
+    gpuErrchk(cudaMemcpy(Ntri, d_Ntri, totBins*sizeof(unsigned int), cudaMemcpyDeviceToHost));
+
     std::cout << "Reading in and binning randoms file..." << std::endl;
     size_t num_rans;
     densityField nden_ran(L, N, r_min);
@@ -235,33 +264,6 @@ int main(int argc, char *argv[]) {
         std::cout << "    Fourier transforming..." << std::endl;
         fftw_execute(dr2dk);
         
-        int N_grid[4];
-        N_grid[0] = 2*k_lim.y/dk.x + 1 - (int(2*k_lim.y/dk.x) % 2);
-        N_grid[1] = 2*k_lim.y/dk.y + 1 - (int(2*k_lim.y/dk.y) % 2);
-        N_grid[2] = 2*k_lim.y/dk.z + 1 - (int(2*k_lim.y/dk.z) % 2);
-        N_grid[3] = N_grid[0]*N_grid[1]*N_grid[2];
-        std::cout << "    Small cube dimension: (" << N_grid[0] << ", " << N_grid[1] << ", " << N_grid[2];
-        std::cout << ")" << std::endl;
-        
-        gpuErrchk(cudaMemcpyToSymbol(d_Ngrid, &N_grid[0], 4*sizeof(int)));
-        
-        std::vector<int4> kvec;
-        float4 *dk3d = new float4[N_grid[3]];
-        
-        for (int i = 0; i < N_grid[3]; ++i) {
-            dk3d[i].x = 0.0;
-            dk3d[i].y = 0.0;
-            dk3d[i].z = 0.0;
-            dk3d[i].w = 0.0;
-        }
-        
-        std::vector<double> kxs = myfreq(N_grid[0], L.x);
-        std::vector<double> kxb = fftfreq(N.x, L.x);
-        std::vector<double> kys = myfreq(N_grid[1], L.y);
-        std::vector<double> kyb = fftfreq(N.y, L.y);
-        std::vector<double> kzs = myfreq(N_grid[2], L.z);
-        std::vector<double> kzb = fftfreq(N.z, L.z);
-        
         std::cout << "    Filling small cube for bispectrum calculation..." << std::endl;
         for (int i = 0; i < N_grid[0]; ++i) {
             int i2 = kMatch(kxs[i], kxb, L.x);
@@ -293,12 +295,6 @@ int main(int argc, char *argv[]) {
                     vec3<double> kv = {kxs[i], kys[j], kzs[k]};
                     dk3d[index].x = delta[dkindex][0];
                     dk3d[index].y = delta[dkindex][1];
-                    dk3d[index].z = k_mag;
-                    dk3d[index].w = gridCorCIC(kv, dr);
-                    if (k_mag >= k_lim.x && k_mag < k_lim.y) {
-                        int4 ktemp = {i - N_grid[0]/2, j - N_grid[1]/2, k - N_grid[2]/2, index};
-                        kvec.push_back(ktemp);
-                    }
                 }
             }
         }
@@ -316,31 +312,19 @@ int main(int argc, char *argv[]) {
         double *d_Bk;
         gpuErrchk(cudaMalloc((void **)&d_Bk, totBins*sizeof(double)));
         
-        unsigned int *Ntri = new unsigned int[totBins];
-        unsigned int *d_Ntri;
-        gpuErrchk(cudaMalloc((void **)&d_Ntri, totBins*sizeof(unsigned int)));
-        
         for (int i = 0; i < totBins; ++i) {
             Bk[i] = 0.0;
-            Ntri[i] = 0;
         }
         
         std::cout << "    Copying data to the GPU..." << std::endl;
         gpuErrchk(cudaMemcpy(d_Bk, Bk, totBins*sizeof(double), cudaMemcpyHostToDevice));
-        gpuErrchk(cudaMemcpy(d_Ntri, Ntri, totBins*sizeof(unsigned int), cudaMemcpyHostToDevice));
         gpuErrchk(cudaMemcpy(d_dk3d, dk3d, N_grid[3]*sizeof(float4), cudaMemcpyHostToDevice));
-        gpuErrchk(cudaMemcpy(d_k, kvec.data(), num_k_vecs*sizeof(int4), cudaMemcpyHostToDevice));
         
-        dim3 num_gpu_threads(p.geti("num_gpu_threads"), p.geti("num_gpu_threads"));
-        dim3 num_blocks(ceil(num_k_vecs/p.getd("num_gpu_threads")),
-                        ceil(num_k_vecs/p.getd("num_gpu_threads")));
         
         std::cout << "    Calculating bispectrum..." << std::endl;
-        cudaEvent_t begin, end;
-        float elapsedTime;
         cudaEventCreate(&begin);
         cudaEventRecord(begin, 0);
-        calcBk<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k, d_Ntri, d_Bk);
+        calcBk<<<num_blocks, num_gpu_threads>>>(d_dk3d, d_k, d_Bk);
         gpuErrchk(cudaPeekAtLastError());
         gpuErrchk(cudaDeviceSynchronize());
         cudaEventCreate(&end);
@@ -361,7 +345,6 @@ int main(int argc, char *argv[]) {
         std::cout << "Time to normalize bispectrum: " << elapsedTime << " ms" << std::endl;
         
         gpuErrchk(cudaMemcpy(Bk, d_Bk, totBins*sizeof(double), cudaMemcpyDeviceToHost));
-        gpuErrchk(cudaMemcpy(Ntri, d_Ntri, totBins*sizeof(unsigned int), cudaMemcpyDeviceToHost));
         
         std::ofstream fout(bk_file.c_str());
         for (int i = 0; i < numBins; ++i) {
@@ -379,16 +362,17 @@ int main(int argc, char *argv[]) {
         fout.close();
         
         delete[] Bk;
-        delete[] Ntri;
-        delete[] dk3d;
-        cudaFree(d_k);
-        cudaFree(d_dk3d);
         cudaFree(d_Bk);
-        cudaFree(d_Ntri);
     }
     
     fftw_destroy_plan(dr2dk);
     delete[] delta;
+    delete[] Ntri;
+    delete[] dk3d;
+
+    cudaFree(d_Ntri);
+    cudaFree(d_k);
+    cudaFree(d_dk3d);
     
     return 0;
 }
