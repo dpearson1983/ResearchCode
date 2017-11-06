@@ -190,7 +190,6 @@ int main(int argc, char *argv[]) {
         Ntri[i] = 0;
     }
 
-    dim3 num_gpu_threads(p.geti("num_gpu_threads"), p.geti("num_gpu_threads"));
     int num_gpu_threads = p.geti("num_gpu_threads");
     int num_blocks = ceil(num_k_vecs/p.getd("num_gpu_threads"));
 
