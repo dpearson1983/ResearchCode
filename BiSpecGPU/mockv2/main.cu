@@ -191,8 +191,8 @@ int main(int argc, char *argv[]) {
     }
 
     dim3 num_gpu_threads(p.geti("num_gpu_threads"), p.geti("num_gpu_threads"));
-    dim3 num_blocks(ceil(num_k_vecs/p.getd("num_gpu_threads")),
-                    ceil(num_k_vecs/p.getd("num_gpu_threads")));
+    int num_gpu_threads = p.geti("num_gpu_threads");
+    int num_blocks = ceil(num_k_vecs/p.getd("num_gpu_threads"));
 
     gpuErrchk(cudaMemcpy(d_Ntri, Ntri, totBins*sizeof(unsigned int), cudaMemcpyHostToDevice));
 
