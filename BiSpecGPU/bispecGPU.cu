@@ -118,7 +118,7 @@ __device__ double atomicAdd(double* address, double val)
 //     10.   k_lim: The minimum (x) and maximum (y) k values to be binned
 //     11.      SN: The power spectrum shotnoise
 //     12.    term: The extra term needed for the bispectrum shotnoise calculation
-__global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *Bk, int4 N_grid,
+__global__ void calcBk(double4 *dk3d, int4 *kvec, double *Bk, int4 N_grid,
                        int N, double binWidth, int numBins, int totBins, double2 k_lim,
                        double SN, double term, double mult) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
@@ -127,15 +127,18 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
     int yShift = N_grid.y/2;
     int zShift = N_grid.z/2;
     
+    __shared__ double Bk_local[4096];
+    for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i)
+        Bk_local[i] = 0;
+    __syncthreads();
+    
     if (tid < N) {
         int4 k_1 = kvec[tid];
         k_1.x *= -1;
         k_1.y *= -1;
         k_1.z *= -1;
         double4 dk_1 = dk3d[k_1.w];
-//         double P_1 = (dk_1.x*dk_1.x + dk_1.y*dk_1.y - SN)*dk_1.w*dk_1.w;
-#pragma unroll 32
-        for (int i = 0; i < N; ++i) {
+        for (int i = tid; i < N; ++i) {
             int4 k_2 = kvec[i];
             double4 dk_2 = dk3d[k_2.w];
             int4 k_3 = {k_1.x - k_2.x, k_1.y - k_2.y, k_1.z - k_2.z, 0};
@@ -147,17 +150,61 @@ __global__ void calcBk(double4 *dk3d, int4 *kvec, unsigned int *N_tri, double *B
                 k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
                 double4 dk_3 = dk3d[k_3.w];
                 if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
-//                     double P_2 = (dk_2.x*dk_2.x + dk_2.y*dk_2.y - SN)*dk_2.w*dk_2.w;
-//                     double P_3 = (dk_3.x*dk_3.x + dk_3.y*dk_3.y - SN)*dk_3.w*dk_3.w;
                     double grid_cor = dk_1.w*dk_2.w*dk_3.w;
                     double val = (dk_1.x*dk_2.x*dk_3.x - dk_1.x*dk_2.y*dk_3.y - dk_1.y*dk_2.x*dk_3.y - dk_1.y*dk_2.y*dk_3.x);
                     val *= grid_cor;
-//                     val -= ((P_1 + P_2 + P_3)*mult + term);
                     int bin = getBkBin(dk_1.z, dk_2.z, dk_3.z, binWidth, numBins, k_lim.x);
-                    atomicAdd(&Bk[bin], val);
-                    atomicAdd(&N_tri[bin], 1);
+                    atomicAdd(&Bk_local[bin], val);
                 }
             }
+        }
+        __syncthreads();
+        
+        for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i) {
+                atomicAdd(&Bk[i], Bk_local[i]);
+        }
+    }
+}
+
+__global__ void calcNtri(double4 *dk3d, int4 *k, unsigned int *N_tri, int4 N_grid, int N, 
+                         float binWidth, int numBins, int totBins, double2 k_lim) {
+    int tid = threadIdx.x + blockIdx.x*blockDim.x;
+    
+    int xShift = N_grid.x/2;
+    int yShift = N_grid.y/2;
+    int zShift = N_grid.z/2;
+    
+    __shared__ unsigned int Ntri_local[4096];
+    for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i)
+        Ntri_local[i] = 0;
+    __syncthreads();
+    
+    if (tid < N) {
+        int4 k_1 = k[tid];
+        double4 dk_1 = dk3d[k_1.w];
+        int ik1 = (dk_1.z - k_lim.x)/binWidth;
+        for (int i = tid; i < N; ++i) {
+            int4 k_2 = k[i];
+            double4 dk_2 = dk3d[k_2.w];
+            int4 k_3 = {-k_1.x - k_2.x, -k_1.y - k_2.y, -k_1.z - k_2.z, 0};
+            int i3 = k_3.x + xShift;
+            int j3 = k_3.y + yShift;
+            int k3 = k_3.z + zShift;
+            if (i3 >= 0 && j3 >= 0 && k3 >= 0 && i3 < N_grid.x && j3 < N_grid.y && k3 < N_grid.z) {
+                k_3.w = k3 + N_grid.z*(j3 + N_grid.y*i3);
+                double4 dk_3 = dk3d[k_3.w];
+                if (dk_3.z < k_lim.y && dk_3.z >= k_lim.x) {
+                    int ik2 = (dk_2.z - k_lim.x)/binWidth;
+                    int ik3 = (dk_3.z - k_lim.x)/binWidth;
+                    int bin = ik3 + numBins*(ik2 + numBins*ik1);
+                    atomicAdd(&Ntri_local[bin], 1);
+                }
+            }
+        }
+        __syncthreads();
+
+        for (int i = threadIdx.x*4; i < threadIdx.x*4 + 4; ++i) {
+            atomicAdd(&N_tri[i], Ntri_local[i]);
         }
     }
 }
@@ -393,7 +440,7 @@ int main(int argc, char *argv[]) {
 //     if (gridSpace < Delta_k.y) gridSpace = Delta_k.y;
 //     if (gridSpace < Delta_k.z) gridSpace = Delta_k.z;
     
-    double gridSpace = p.getd("binScale")*Delta_k.x;
+    double gridSpace = 0.008;
     int numKBins = ceil((k_lim.y - k_lim.x)/gridSpace);
     int totBins = numKBins*numKBins*numKBins;
     
@@ -438,7 +485,16 @@ int main(int argc, char *argv[]) {
     float elapsedTime;
     cudaEventCreate(&begin);
     cudaEventRecord(begin, 0);
-    calcBk<<<numBlocks, numThreads>>>(d_dk3d, d_kvec, d_Ntri, d_Bk, N_grid, numKVecs, gridSpace, numKBins,
+    calcNtri<<<numBlocks,numThreads>>>(d_dk3d, d_kvec, d_Ntri, N_grid, numKVecs, gridSpace, numKBins, totBins, k_lim);
+    cudaEventCreate(&end);
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsedTime, begin, end);
+    std::cout << "Time to calculate number of triangles: " << elapsedTime << " ms" << std::endl;
+
+    cudaEventCreate(&begin);
+    cudaEventRecord(begin, 0);
+    calcBk<<<numBlocks, numThreads>>>(d_dk3d, d_kvec, d_Bk, N_grid, numKVecs, gridSpace, numKBins,
                                       totBins, k_lim, shotnoise, term, galbk_nbw.y);
     cudaEventCreate(&end);
     cudaEventRecord(end, 0);
@@ -448,6 +504,7 @@ int main(int argc, char *argv[]) {
         
     numBlocks = ceil(totBins/p.getd("numThreads"));
     
+    std::cout << alpha*ranbk_nbw.z << " =? " << galbk_nbw.z << std::endl;
     cudaEventCreate(&begin);
     cudaEventRecord(begin, 0);
     normBk<<<numBlocks, numThreads>>>(d_Ntri, d_Bk, galbk_nbw.z, totBins);

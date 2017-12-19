@@ -226,6 +226,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
         gsl_spline_init(pkmcmc::Pk_nw, kin.data(), pin.data(), pin.size());
     }
     
+    std::vector<double> sig;
     std::cout << "Reading in and storing data file..." << std::endl;
     if (std::ifstream(data_file)) {
         fin.open(data_file.c_str(), std::ios::in);
@@ -236,6 +237,7 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
                 pkmcmc::k.push_back(kt);
                 pkmcmc::data.push_back(P);
                 pkmcmc::model.push_back(0.0);
+                sig.push_back(sigma);
             }
         }
         fin.close();
@@ -314,7 +316,8 @@ pkmcmc::pkmcmc(std::string data_file, std::string cov_file, std::string pk_bao_f
         double broadband = pars[8]*k_i*k_i + pars[3]*k_i + pars[4] + pars[5]/k_i + pars[6]/(k_i*k_i) + pars[7]/(k_i*k_i*k_i);
         double norm = (pars[0]*pars[0]*P_nw + broadband);
         fout << pkmcmc::k[i] << " " << pkmcmc::model[i] << " " << pkmcmc::data[i] << " ";
-        fout << pkmcmc::model[i]/norm << " " << pkmcmc::data[i]/norm << "\n";
+        fout << pkmcmc::model[i]/norm << " " << pkmcmc::data[i]/norm << " " << sig[i]/norm << " ";
+        fout << (pkmcmc::data[i] - pkmcmc::model[i])/pkmcmc::model[i] << " " << sig[i]/pkmcmc::model[i] << "\n";
     }
     fout.close();
 }

@@ -377,7 +377,9 @@ double bkmcmc::calc_chi_squared() {
     double chisq = 0.0;
     for (int i = 0; i < bkmcmc::num_data; ++i) {
         for (int j = i; j < bkmcmc::num_data; ++j) {
-            chisq += (bkmcmc::data[i] - bkmcmc::Bk[i])*Psi[i][j]*(bkmcmc::data[j] - bkmcmc::Bk[j]);
+            if (bkmcmc::data[i] > 0 && bkmcmc::data[j] > 0) {
+                chisq += (bkmcmc::data[i] - bkmcmc::Bk[i])*Psi[i][j]*(bkmcmc::data[j] - bkmcmc::Bk[j]);
+            }
         }
     }
     return chisq;
@@ -526,7 +528,7 @@ bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> 
         std::vector<double> row;
         row.reserve(bkmcmc::num_data);
         for (int j = 0; j < bkmcmc::num_data; ++j) {
-            row.push_back((1.0 - double(bkmcmc::num_data + 1.0)/999.0)*gsl_matrix_get(psi, i, j));
+            row.push_back((1.0 - double(bkmcmc::num_data + 1.0)/2048.0)*gsl_matrix_get(psi, i, j));
         }
         bkmcmc::Psi.push_back(row);
     }
@@ -607,10 +609,20 @@ void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, floa
         fin.close();
         fin.open(reals_file.c_str(), std::ios::in);
         while (!fin.eof()) {
+            double alpha;
             num_old_rels++;
-            for (int i = 0; i < bkmcmc::num_pars; ++i)
+            std::cout << "\r";
+            for (int i = 0; i < bkmcmc::num_pars; ++i) {
                 fin >> bkmcmc::theta_0[i];
+                std::cout.width(10);
+                std::cout << bkmcmc::theta_0[i];
+            }
+            fin >> alpha;
             fin >> bkmcmc::chisq_0;
+            std::cout.width(10);
+            std::cout << alpha;
+            std::cout.width(10);
+            std::cout << bkmcmc::chisq_0;
         }
         fin.close();
         num_old_rels--;
