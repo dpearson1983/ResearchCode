@@ -11,7 +11,7 @@
 #include <vector>
 #include <cuda.h>
 #include <vector_types.h>
-#include <gpuerrchk.h>
+#include "include/gpuerrchk.h"
 #include "include/bkmcmc.h"
 #include "include/hide_harppi.h"
 #include "include/make_spline.h"

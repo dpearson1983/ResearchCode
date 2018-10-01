@@ -1,8 +1,8 @@
-CXX = g++
-ARCHS = sm_50
-VXX = nvcc -std=c++11 -arch=$(ARCHS)
+CXX = cuda-g++
+ARCHS = sm_52
+VXX = nvcc -arch=$(ARCHS) -ccbin=cuda-g++
 CXXFLAGS = -lharppi -lgsl -lgslcblas -lm
-CXXOPTS = -march=native -O3
+CXXOPTS = -march=native -mtune=native -O3
 VXXFLAGS = -Xptxas="-v" -maxrregcount=64 --compiler-options "$(CXXFLAGS) $(CXXOPTS)"
 
 build: hide_harppi make_spline main.cu
