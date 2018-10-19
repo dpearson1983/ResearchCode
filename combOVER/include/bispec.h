@@ -24,7 +24,7 @@
 #include <cmath>
 #include <cuda.h>
 #include <vector_types.h>
-#include <gpuerrchk.h>
+#include "gpuerrchk.h"
 #include "gaussquad32.h"
 #include "file_check.h"
 #include "make_spline.h"
@@ -209,13 +209,13 @@ __device__ double bispec_model(int x, float &phi, float3 k) {
     float G23 = THREESEVENTHS + 0.5*mu23*(k2/k3 + k3/k2) + FOURSEVENTHS*mu23*mu23;
     float G31 = THREESEVENTHS + 0.5*mu31*(k3/k1 + k1/k3) + FOURSEVENTHS*mu31*mu31;
     
-    float Z2k12 = 0.5*d_p[1] + d_p[0]*(F12 + 0.5*mu12p*k12*(mu1/k1 + mu2/k2)) + d_p[2]*mu12p*mu12p*G12
+    float Z2k12 = 0.5*d_p[1] + d_p[0]*(F12 + 0.5*mu12p*k12*d_p[2]*(mu1/k1 + mu2/k2)) + d_p[2]*mu12p*mu12p*G12
                   + 0.5*d_p[2]*d_p[2]*mu12p*k12*mu1*mu2*(mu1/k1 + mu2/k2) 
                   + 0.5*(-FOURSEVENTHS*(d_p[0] - 1.0))*(mu12*mu12 - 1.0/3.0);
-    float Z2k23 = 0.5*d_p[1] + d_p[0]*(F23 + 0.5*mu23p*k23*(mu2/k2 + mu3/k3)) + d_p[2]*mu23p*mu23p*G23
+    float Z2k23 = 0.5*d_p[1] + d_p[0]*(F23 + 0.5*mu23p*k23*d_p[2]*(mu2/k2 + mu3/k3)) + d_p[2]*mu23p*mu23p*G23
                   + 0.5*d_p[2]*d_p[2]*mu23p*k23*mu2*mu3*(mu2/k2 + mu3/k3)
                   + 0.5*(-FOURSEVENTHS*(d_p[0] - 1.0))*(mu23*mu23 - 1.0/3.0);
-    float Z2k31 = 0.5*d_p[1] + d_p[0]*(F31 + 0.5*mu31p*k31*(mu3/k3 + mu1/k1)) + d_p[2]*mu31p*mu31p*G31
+    float Z2k31 = 0.5*d_p[1] + d_p[0]*(F31 + 0.5*mu31p*k31*d_p[2]*(mu3/k3 + mu1/k1)) + d_p[2]*mu31p*mu31p*G31
                   + 0.5*d_p[2]*d_p[2]*mu31p*k31*mu3*mu1*(mu3/k3 + mu1/k1)
                   + 0.5*(-FOURSEVENTHS*(d_p[0] - 1.0))*(mu31*mu31 - 1.0/3.0);
                   
